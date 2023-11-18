@@ -13,7 +13,7 @@ const userController = require('../controller/userController')
                                   /* Event management */
 
     // API for create an event
-    router.post('/create_Event',upload.array('images', 10), userController.create_Event)
+                         router.post('/create_Event',upload.array('images', 10), userController.create_Event)
     // API for add venue_Date_Time in event
                          router.post('/newVenue_Date_Time/:eventId' , userController.newVenue_Date_Time)
     // API for add co-host in event
@@ -27,9 +27,11 @@ const userController = require('../controller/userController')
     // API for import guest Data in event                      
                          router.post('/import_Guest/:eventId', upload.single('file') , userController.import_Guest)
     // API for getAllGuest in event
-                         router.get('/getAllGuest/:eventId', userController.getAllGuest)
-    // API for add Guest into BookMark
-                         router.post('/favourite_Guest/:guestId/:eventId', userController.favourite_Guest)
+                         router.get('/getAllGuest/:eventId', userController.getAllGuest)    
+    // API for add all guests of Event into BookMark with collectionName
+                         router.post('/addAllGuestsToBookmark/:eventId', userController.addAllGuestsToBookmark)
+    // APi for delete a Guest of collection in bookmark model
+                        router.delete('/deleteGuestInCollection/:guestId', userController.deleteGuestInCollection) 
 
 
 module.exports = router

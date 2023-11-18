@@ -475,60 +475,112 @@ const ExcelJs = require('exceljs')
                       }
                     };
 
-        //API for add Guest in BookMark
-                          const favourite_Guest = async (req,res)=>{
-                                  try {
-                                    const eventId = req.params.eventId
-                                    const guestId = req.params.guestId
+                                                              
+                          
+  // API to add all guest as favourite in bookmark 
+                          const addAllGuestsToBookmark = async (req, res) => {
+                            try {
+                              const eventId = req.params.eventId;
+                              const collectionName = req.body.collectionName
+                          
+                              // Check event existence
+                              const event = await eventModel.findOne({ _id: eventId });
+                              if (!event) {
+                                return res.status(400).json({
+                                  success: false,
+                                  message: 'No event found',
+                                });
+                              }
+                          
+                              // Get all unique guests in the event
+                              const uniqueGuests = Array.from(
+                                new Set(event.Guests.map((guest) => guest._id.toString()))
+                              ).map((guestId) =>
+                                event.Guests.find((guest) => guest._id.toString() === guestId)
+                              );
+                          
+                              // Iterate through all unique guests in the event and add to bookmark
+                              for (const guest of uniqueGuests) {
+                                // Check if the guest is already in the bookmark
+                                const existingBookmark = await bookmarkModel.findOne({
+                                  Guest_Name: guest.Guest_Name,
+                                  phone_no: guest.phone_no,
+                                  collectionName : collectionName
+                                });
+                          
+                                // If not in the bookmark, add to bookmark with status code 1
+                                if (!existingBookmark) {
+                                  const bookMarkEntry = new bookmarkModel({
+                                    Guest_Name: guest.Guest_Name,
+                                    phone_no: guest.phone_no,
+                                    status: 1,
+                                    collectionName : collectionName
+                                  });
+                          
+                                  // Save the bookmark entry
+                                  await bookMarkEntry.save();
+                                }
+                              }
+                          
+                              res.status(200).json({
+                                success: true,
+                                message: 'All guests added to bookmark as favorites',
+                              });
+                            } catch (error) {
+                              console.error(error);
+                              return res.status(500).json({
+                                success: false,
+                                message: 'There is a server error',
+                              });
+                            }
+                          };
+                          
+          // delete a particular guest in a collection in bookMark model
+                         const deleteGuestInCollection = async (req ,res)=> {
+                          try {
+                            const guestId = req.params.guestId
+                            collectionName = req.body.collectionName
 
-                                    // check event existance
-                                    const event = await eventModel.findOne({ _id:eventId})
-                                    if(!event)
-                                    {
-                                      res.status(400).json({
-                                                        success : false,
-                                                        message : 'no event found'
-                                      })
-                                      return
-                                    }
-                                         // check for Guest
-                              const existGuestIndex = event.Guests.findIndex(guest => guest._id.toString() === guestId)
-                              if(existGuestIndex === -1)
+                            
+                            // check for guest
+                            const guest = await bookmarkModel.findOneAndDelete({
+                              _id:guestId,
+                              collectionName
+                            })
+                            
+                              if(!collectionName)
                               {
-                                return res.status(400).json({ success : false , message : "guest not found"})
-                                }  
-                                event.Guests[existGuestIndex].status = 1
-                                await event.save()
-                                         // Get the Guest details
-                                         const guest = event.Guests[existGuestIndex]
+                                return res.status(400).json({
+                                                       success : false ,
+                                                       message : 'please provide collection Name'
+                                })
+                              }
+                            if(!guest)
+                            {
+                              return res.status(400).json({
+                                                       success : false ,
+                                                       message  : `Guest not found in collection  : ${collectionName}`
+                              })
+                            }
+                            res.status(200).json({
+                                                  success : true,
+                                                  message : `Guest deleted Successfully in collection : ${collectionName}`
+                            })
+                            
 
-                                         // create a new Bookmark entry with guest details and status code
-                                         const bookMarkEntry = new bookmarkModel({
-                                          Guest_Name : guest.Guest_Name,
-                                          phone_no : guest.phone_no,
-                                          status : 1
-                                         })
-                                         // save the bookmark entry 
-                                         await bookMarkEntry.save()
-
-                                         res.status(200).json({ 
-                                                   success : true ,
-                                                   message : 'guest added to bookmark as favourite',
-                                                   bookMarkEntry
-                                         })
-                                  } catch (error) {
-                                    return res.status(500).json({
-                                      success : false,
-                                      message : 'there is an server error'
-                                    })
-                                  }
+                          } catch (error) {
+                            console.error(error);
+                            return res.status(500).json({
+                                                   success : false ,
+                                                   message : ' there is an server error '
+                            })
                           }
-                      
-        
+                         }
+                            
                      
 
 module.exports = {
                     userSignUp , userLogin , create_Event , newVenue_Date_Time , add_co_host ,
                      edit_Venue_Date_Time , delete_Venue_Date_Time , add_guest , import_Guest ,
-                     getAllGuest , favourite_Guest
+                     getAllGuest  , addAllGuestsToBookmark , deleteGuestInCollection
 }

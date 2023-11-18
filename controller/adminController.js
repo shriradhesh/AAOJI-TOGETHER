@@ -7,9 +7,10 @@ const eventModel = require('../models/eventModel')
 const Admin = require('../models/AdminModel')
 const bcrypt = require('bcrypt')
 const tokenModel = require('../models/tokenModel')
-const sendEmails = require('../utils/sendEmails')
+const Adminforgetpass_sentEmail = require('../utils/AdminSendEmails')
 const crypto = require('crypto')
 const nodemailer = require('nodemailer')
+const bookmarkModel = require('../models/bookmarkModel')
                                              /* API's  */
 // API for login ADMIN 
 const login_Admin = async (req, res) => {
@@ -142,7 +143,7 @@ const forgetPassToken = async(req,res)=>{
            }
 
            const link = `${process.env.BASE_URL}`
-           await sendEmails(admin.email, "Password reset", link)
+           await Adminforgetpass_sentEmail(admin.email, "Password reset", link)
 
            res.status(200).json({success : true ,messsage  : "password reset link sent to your email account" , token : token})
           
@@ -226,5 +227,110 @@ const forgetPassToken = async(req,res)=>{
                     })
                 }
                }
-                                       
-        module.exports = { login_Admin  , changePassword , forgetPassToken , reset_password}
+
+    // Admin change profileImage
+                                            const changeProfile = async (req, res) => {
+                                                try {
+                                                    const adminId = req.params.AdminId;
+                                            
+                                                    // Check for admin existence
+                                                    const admin = await Admin.findById(adminId);
+                                            
+                                                    if (!admin) {
+                                                        return res.status(400).json({
+                                                            success: false,
+                                                            message: "Admin not found",
+                                                        });
+                                                    }
+                                            
+                                                    const profile = req.file.filename;
+                                            
+                                                    // Check if admin already has a profile image
+                                                    if (admin.profileImage) {
+                                                        // Admin has a profile image, update it
+                                                        admin.profileImage = profile;
+                                                        await admin.save();
+                                            
+                                                        return res.status(200).json({
+                                                            success: true,
+                                                            message: 'Profile image updated successfully',
+                                                        });
+                                                    } else {
+                                                        // Admin does not have a profile image, create it
+                                                        admin.profileImage = profile;
+                                                        await admin.save();
+                                            
+                                                        return res.status(200).json({
+                                                            success: true,
+                                                            message: 'Profile image created successfully',
+                                                        });
+                                                    }
+                                                } catch (error) {
+                                                    console.error(error);
+                                                    return res.status(500).json({
+                                                        success: false,
+                                                        message: "There is a server error",
+                                                    });
+                                                }
+                                            };
+    
+                     
+                // API for get all events
+                               const getAllEvents = async (req,res)=>{
+                                try {
+                                    const event = await eventModel.find({})
+                                    if(!event)
+                                    {
+                                        return res.status(400).json({
+                                                                       success : false , 
+                                                                       message : 'there is no events found'
+                                        })
+                                    }
+                                    res.status(200).json({
+                                        success: true,
+                                        message: 'All Events',
+                                        events_data: event,
+                                      });
+                                } catch (error) {
+                                    return res.status(500).json({
+                                                           success : false ,
+                                                           message : 'there is an server error'
+                                    })
+                                }
+                               }
+
+            // APi for get all guests of a collection  in bookMark model
+                             const getCollectionGuests = async (req ,res)=>{
+                                try {
+                                    const collectionName = req.body.collectionName
+                                    const query = {
+                                        collectionName
+                                    }
+                                    
+                                    const guest = await bookmarkModel.find(query)
+
+                                    if(!guest || guest.length === 0)
+                                    {
+                                        return res.status(400).json({
+                                                               success : false ,
+                                                               message : `no guest found for the collection : ${collectionName}`
+                                        })
+                                    }
+
+                                    res.status(200).json({
+                                                        success : true,
+                                                        message : `All Guests for the collection : ${collectionName}`,
+                                                        all_guests : guest
+                                    })
+                                } catch (error) {
+                                    console.error(error);
+                                    return res.status(500).json({
+                                                             success : false ,
+                                                             message : 'there is an server error'
+                                    })
+                                }
+                             }
+                               
+                                          
+        module.exports = { login_Admin  , changePassword , forgetPassToken , reset_password ,
+                               changeProfile , getAllEvents , getCollectionGuests}

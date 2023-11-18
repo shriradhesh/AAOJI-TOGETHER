@@ -15,5 +15,11 @@ const nodemailer = require('nodemailer')
                  router.post('/forgetPassToken', adminController.forgetPassToken)
 // Api for reset password using token
                  router.post('/reset_password/:tokenValue', adminController.reset_password)
+// API for change ProfileImage also update
+                 router.post('/changeProfile/:AdminId',upload.single('profileImage'), adminController.changeProfile)
+// API for getAll Events 
+                 router.get('/getAllEvents', adminController.getAllEvents)
+// API for get all Guests of a collection in Bookmark model
+                  router.get('/getCollectionGuests', adminController.getCollectionGuests)
 
 module.exports = router
