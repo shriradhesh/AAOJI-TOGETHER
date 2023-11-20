@@ -32,6 +32,16 @@ const userController = require('../controller/userController')
                          router.post('/addAllGuestsToBookmark/:eventId', userController.addAllGuestsToBookmark)
     // APi for delete a Guest of collection in bookmark model
                         router.delete('/deleteGuestInCollection/:guestId', userController.deleteGuestInCollection) 
-
+    // APi for get Event by Id
+                        router.get('/getEvent/:eventId', userController.getEvent)
+   // APi for get filtered event 
+                        router.get('/getFilteredEvent', userController.getFilteredEvent)
+    // API for delete event using eventId
+                        router.delete('/deleteEvent/:eventId', userController.deleteEvent)
+   // API for feedback form
+                        router.post('/feedback/:eventId', userController.feedback)
+    // API for delete user
+                        router.delete('/deleteUser/:userId', userController.deleteUser)
+  
 
 module.exports = router

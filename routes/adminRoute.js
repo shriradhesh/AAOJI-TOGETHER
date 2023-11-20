@@ -21,5 +21,8 @@ const nodemailer = require('nodemailer')
                  router.get('/getAllEvents', adminController.getAllEvents)
 // API for get all Guests of a collection in Bookmark model
                   router.get('/getCollectionGuests', adminController.getCollectionGuests)
+// API for get all feedbacks of a event
+                  router.get('/getFeedbacksofEvent/:eventId', adminController.getFeedbacksofEvent)
+
 
 module.exports = router

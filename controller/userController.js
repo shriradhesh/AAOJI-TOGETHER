@@ -1,6 +1,7 @@
 const userModel = require('../models/userModel')
 const eventModel = require('../models/eventModel')
 const bookmarkModel = require('../models/bookmarkModel')
+const feedbackModel = require('../models/feedbackModel')
 
 const cors = require('cors')
 const upload = require('../utils/uploads')
@@ -577,10 +578,217 @@ const ExcelJs = require('exceljs')
                           }
                          }
                             
-                     
+      // get an particular event
+                                 const getEvent = async (req , res)=>{
+                                  try {
+                                       const eventId = req.params.eventId                                     
+
+                                       // check for event existnace
+                                       const event = await eventModel.findOne({ _id:eventId })
+                                       if(!event)
+                                       {
+                                        return res.status(400).json({
+                                                                  success : false ,
+                                                                  message : `Event not found with these eventId : ${eventId}`
+                                        })
+                                       }
+                                       else
+                                       {
+                                        return res.status(200).json({
+                                                                   success : false,
+                                                                   message : `Event`,
+                                                                   event_details : event
+                                        })
+                                       } 
+                                       
+                                      
+                                  } catch (error) {
+                                    return res.status(500).json({
+                                                       success : false,
+                                                       message : ' there is an server error '
+                                    })
+                                  }
+                                 }
+                
+            // API for get filtered Event 
+                                        const getFilteredEvent = async (req, res) => {
+                                          try {
+                                            const {
+                                              latest_Update,
+                                              date,
+                                              venue_location,
+                                              event_Type,
+                                              title,
+                                              year,
+                                              month,
+                                            } = req.query;
+                                        
+                                            const filter = {};
+                                        
+                                            if (latest_Update) {
+                                              filter.updatedAt = {
+                                                $gte: new Date(latest_Update),
+                                              };
+                                            }
+                                        
+                                            if (venue_location) {
+                                              filter['venue_Date_and_time.venue_location'] = venue_location;
+                                            }
+                                        
+                                            if (event_Type) {
+                                              filter.event_Type = event_Type;
+                                            }
+                                        
+                                            if (title) {
+                                              filter.title = {
+                                                $regex: new RegExp(title, 'i'),
+                                              };
+                                            }
+                                        
+                                            if (date) {
+                                              filter['venue_Date_and_time.date'] = new Date(date);
+                                            } else if (year && month) {
+                                              // If year and month are provided, filter by year and month
+                                              const startDate = new Date(`${year}-${month}-01`);
+                                              const endDate = new Date(`${year}-${parseInt(month) + 1}-01`);
+                                              filter['venue_Date_and_time.date'] = {
+                                                $gte: startDate,
+                                                $lt: endDate,
+                                              };
+                                            }
+                                        
+                                            const events = await eventModel.find(filter);
+                                        
+                                            return res.status(200).json({
+                                              success: true,
+                                              message: 'Filtered events',
+                                              events: events,
+                                            });
+                                          } catch (error) {
+                                            return res.status(500).json({
+                                              success: false,
+                                              message: 'There is a server error',
+                                            });
+                                          }
+                                        };
+                // API for delete an event
+                const deleteEvent = async (req , res)=>{
+                  try {
+                               const eventId = req.params.eventId
+                               // check for event
+                          const event = await eventModel.findByIdAndDelete({_id : eventId })
+                          if(!event)
+                          {
+                            return res.status(400).json({
+                                                  success : false ,
+                                                  message :  `Event not found with the given eventId`
+                            })
+                          }
+                          else
+                          {
+                            return res.status(200).json({
+                                                      success : true ,
+                                                      message : `event deleted successfully`
+                            })
+                          }
+                  } catch (error) {
+                    return res.status(500).json({
+                                          success : false ,
+                                          message : 'there is an server error'
+                    })
+                  }
+                }                        
+            // APi for give feedback
+                             const feedback = async (req ,res)=>{
+                              try {
+                                    const eventId = req.params.eventId
+                                    const { rating , message , feedback_Type } = req.body                                    
+
+                                    const requiredFields = [
+                                      'rating' ,
+                                      'message' ,
+                                      'feedback_Type'                        
+                                  ];
+                                   for (const field of requiredFields) {
+                                      if (!req.body[field]) {
+                                          return res.status(400).json({ message: `Missing ${field.replace('_', ' ')} field`, success: false });
+                                      }
+                                  }
+                                      // check for event existance
+                                      const event = await eventModel.findOne({ _id : eventId })
+                                      if(!event)
+                                      {
+                                        return res.status(400).json({
+                                                                   success : false ,
+                                                                    message : 'event not found'
+                                        })
+                                      }
+
+                                         // check if rating is within the range of 1 to 5
+                                         if(rating < 1 || rating > 5)
+                                         {
+                                          return res.status(400).json({
+                                                                  success : false ,
+                                                                  message : 'Rating should be in Range of 1 to 5 '
+                                          })
+                                         }
+
+                                    const feedbacks = new feedbackModel({
+                                      rating ,
+                                      message,
+                                      feedback_Type,
+                                      eventId : eventId
+
+                                    })
+                              
+                                    await feedbacks.save()
+                                     return res.status(200).json({
+                                                                success : true ,
+                                                                message : ' feedback saved successfully',
+                                                                feedback_details : feedbacks
+                                     })
+                              } catch (error) {
+                                console.error(error);
+                                return res.status(500).json({
+                                                       success : false ,
+                                                       message : ' there is an server error '
+                                })
+                              }
+                             }
+          // APi for delete user
+                                     const deleteUser = async (req ,res)=>{
+                                      try {
+                                        const userId = req.params.userId
+                                                  // check for user and delete 
+                                        const user = await userModel.findOneAndDelete({ _id : userId })
+                                        if(!user)
+                                        {
+                                          return res.status(400).json({ 
+                                                                      success : false ,
+                                                                      message : 'User not found'
+                                          })
+                                        }
+                                        else
+                                        {
+                                          return res.status(200).json({
+                                                                    success : true ,
+                                                                    message : 'User deleted successfully'
+                                          })
+                                        }
+                                            
+                                      } catch (error) {
+                                        return res.status(500).json({
+                                                                success : false ,
+                                                                message : 'there is an server error'
+                                        })
+                                      }
+                                     }
+                
 
 module.exports = {
                     userSignUp , userLogin , create_Event , newVenue_Date_Time , add_co_host ,
                      edit_Venue_Date_Time , delete_Venue_Date_Time , add_guest , import_Guest ,
-                     getAllGuest  , addAllGuestsToBookmark , deleteGuestInCollection
+                     getAllGuest  , addAllGuestsToBookmark , deleteGuestInCollection , getEvent ,
+                     getFilteredEvent , feedback , deleteEvent , deleteUser
+
 }

@@ -330,7 +330,47 @@ const forgetPassToken = async(req,res)=>{
                                     })
                                 }
                              }
+
+              // API for get all feedbacks of events 
+              const getFeedbacksofEvent = async (req , res )=>{
+                try {
+                      const eventId = req.params.eventId
+                      // check for event
+                      const event = await eventModel.findOne({ _id : eventId })
+                      if(!event)
+                      {
+                        return res.status(400).json({
+                                                success : false ,
+                                                message : ' event not found '
+                        })
+                      }
+                    // check for feedbacks
+                    const feedback = await feedbackModel.find({})
+                    if(!feedback)
+                    {
+                      return res.status(400).json({
+                                            success : false,
+                                            message : 'there is no feedback yet'
+                      })
+                    }
+                    else
+                    {
+                      return res.status(200).json({
+                                                 success : true ,
+                                                 message :`all feedbacks of event : ${eventId}`,
+                                                 feedback_details : feedback
+                                                 
+                      })
+                    }
+
+                } catch (error) {
+                  return res.status(500).json({
+                                             success : false ,
+                                             message : ' there is an server error '
+                  })
+                }
+               }
                                
-                                          
+           
         module.exports = { login_Admin  , changePassword , forgetPassToken , reset_password ,
-                               changeProfile , getAllEvents , getCollectionGuests}
+                               changeProfile , getAllEvents , getCollectionGuests , getFeedbacksofEvent}
