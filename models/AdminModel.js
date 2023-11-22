@@ -17,6 +17,13 @@ const adminSchema = mongoose.Schema({
         type: String,
         default: '',
     },
+    firstName : {
+          type : String ,
+          required : true
+    },
+    lastName : {
+        type: String
+    } 
 });
 
 const Admin = mongoose.model('Admin', adminSchema);

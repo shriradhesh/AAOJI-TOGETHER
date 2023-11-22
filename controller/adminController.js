@@ -142,7 +142,7 @@ const forgetPassToken = async(req,res)=>{
             }).save()
            }
 
-           const link = `${process.env.BASE_URL}`
+           const link = `${process.env.AdminForgetpassURL}`
            await Adminforgetpass_sentEmail(admin.email, "Password reset", link)
 
            res.status(200).json({success : true ,messsage  : "password reset link sent to your email account" , token : token})
@@ -228,10 +228,46 @@ const forgetPassToken = async(req,res)=>{
                 }
                }
 
+               // APi to get admin details
+                                const getAdmin = async(req,res)=>{
+                                    try {
+                                        const adminId = req.params.adminId
+                                        // check for admin exsitance
+                                    const admin = await Admin.findOne({ _id : adminId })
+                                    if(!admin)
+                                    {
+                                        return res.status(400).json({
+                                                            success : false ,
+                                                            message : ' Admin not found'
+                                        })
+                                     }
+                                     else
+                                     {
+                                        return res.status(200).json({ 
+                                                       success : true ,
+                                                       message : 'Admin details',
+                                                       admin_details : [{
+                                                                    firstName : admin.firstName,
+                                                                    lastName : admin.lastName,
+                                                                    email : admin.email,
+                                                                    profileImage : admin.profileImage
+                                                                    
+                                                       }]
+                                        })
+                                     }
+
+                                    } catch (error) {
+                                        return res.status(500).json({
+                                                      success : false ,
+                                                      message : 'server error'
+                                        })
+                                    }   
+                                }
     // Admin change profileImage
                                             const changeProfile = async (req, res) => {
                                                 try {
                                                     const adminId = req.params.AdminId;
+                                                    const { firstName , lastName , email} = req.body
                                             
                                                     // Check for admin existence
                                                     const admin = await Admin.findById(adminId);
@@ -242,7 +278,11 @@ const forgetPassToken = async(req,res)=>{
                                                             message: "Admin not found",
                                                         });
                                                     }
-                                            
+                                                                // Update firstName, lastName, and email
+                                                            admin.firstName = firstName
+                                                            admin.lastName = lastName
+                                                            admin.email = email
+
                                                     const profile = req.file.filename;
                                             
                                                     // Check if admin already has a profile image
@@ -253,7 +293,7 @@ const forgetPassToken = async(req,res)=>{
                                             
                                                         return res.status(200).json({
                                                             success: true,
-                                                            message: 'Profile image updated successfully',
+                                                            message: 'Profile image and Information updated successfully',
                                                         });
                                                     } else {
                                                         // Admin does not have a profile image, create it
@@ -262,7 +302,7 @@ const forgetPassToken = async(req,res)=>{
                                             
                                                         return res.status(200).json({
                                                             success: true,
-                                                            message: 'Profile image created successfully',
+                                                            message: 'new Profile image created and information updated successfully',
                                                         });
                                                     }
                                                 } catch (error) {
@@ -373,4 +413,4 @@ const forgetPassToken = async(req,res)=>{
                                
            
         module.exports = { login_Admin  , changePassword , forgetPassToken , reset_password ,
-                               changeProfile , getAllEvents , getCollectionGuests , getFeedbacksofEvent}
+                               changeProfile , getAllEvents , getCollectionGuests , getFeedbacksofEvent , getAdmin}

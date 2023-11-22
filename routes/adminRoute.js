@@ -23,6 +23,8 @@ const nodemailer = require('nodemailer')
                   router.get('/getCollectionGuests', adminController.getCollectionGuests)
 // API for get all feedbacks of a event
                   router.get('/getFeedbacksofEvent/:eventId', adminController.getFeedbacksofEvent)
+// API for get admin details
+                  router.get('/getAdmin/:adminId' , adminController.getAdmin)
 
 
 module.exports = router

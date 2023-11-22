@@ -10,6 +10,7 @@ const multer = require('multer')
 const jwt = require('jsonwebtoken')
 const path = require('path')
 const ExcelJs = require('exceljs')
+const FirebaseAdmin = require('../utils/firebaseService')
 
                                 /* API for users */
     // API for user signup
@@ -69,7 +70,7 @@ const ExcelJs = require('exceljs')
                             
                             return res.json({ message: 'user Login Successful', success: true, data: user });
                         } else {
-                            return res.status(401).json({ message: 'phone_no not found', success: false });
+                            return res.status(400).json({ message: 'phone_no not found', success: false });
                         }
                         } catch (error) {
                         console.error(error);
@@ -77,12 +78,15 @@ const ExcelJs = require('exceljs')
                         }
                     };
 
+  
+                   
                                               /*  Event management */
 
 
     // API for create Event
     const create_Event = async (req, res) => {
         try {
+          const userId = req.params.userId
           const { title, description, event_Type, venue_Date_and_time } = req.body;
       
           const requiredFields = ['title', 'description', 'event_Type', 'venue_Date_and_time'];
@@ -125,7 +129,8 @@ const ExcelJs = require('exceljs')
                 end_time: venue_Date_and_time.end_time
               }
             ],
-            images: imagePaths
+            images: imagePaths,
+            userId : userId
           });
       
           const saveEvent = await newEvent.save();
@@ -640,9 +645,7 @@ const ExcelJs = require('exceljs')
                                             }
                                         
                                             if (title) {
-                                              filter.title = {
-                                                $regex: new RegExp(title, 'i'),
-                                              };
+                                              filter.title = title
                                             }
                                         
                                             if (date) {
@@ -783,12 +786,74 @@ const ExcelJs = require('exceljs')
                                         })
                                       }
                                      }
-                
+        // APi for get Event Images
+                              const getImages = async (req ,res)=>{
+                                try {
+                                      const eventId = req.params.eventId
+                                      // check for event
+                                  const event = await eventModel.findOne({ _id : eventId })
+                                  if(!event)
+                                  {
+                                    return res.status(400).json({
+                                                            success : false ,
+                                                            message : 'event not found'
+                                    })
+                                  }
+                                  
+                                  const eventImages = event.images                                 
+                                    return res.status(200).json({
+                                                          success : true ,
+                                                          message : 'event images ',
+                                                          eventImages : eventImages
+                                    })
+
+                                } catch (error) {
+                                  return res.status(500).json({
+                                                          success : false ,
+                                                          message : 'there is an server error'
+                                  })
+                                }
+                              }
+          // API for send Notification
+                                      const sendNotification = async () => {
+                                        try {
+                                          const users = await userModel.find();
+                                      
+                                          for (const user of users) {
+                                            const userId = user._id;
+                                            const eventsCreated = user.eventsCreated || [];
+                                      
+                                            // Fetch upcoming events for the user
+                                            const upcomingEvents = eventsCreated.filter(event => new Date(event.venue_Date_and_time.date) > new Date());
+                                      
+                                            // Send notification for upcoming events
+                                            await Promise.all(upcomingEvents.map(async (event) => {
+                                              const token = user.fcmToken;
+                                              const message = {
+                                                token: token,
+                                                notification: {
+                                                  title: 'Upcoming events',
+                                                  body: `Don't forget about the upcoming event: ${event.title}`
+                                                }
+                                              };
+                                      
+                                              await FirebaseAdmin.messaging().send(message);
+                                              console.log('Successfully sent message', event.title);
+                                            }));
+                                          }
+                                        } catch (error) {
+                                          console.error('Error sending notification', error);
+                                        }
+                                      };
+                                      
+                                      sendNotification();
+
+            
 
 module.exports = {
                     userSignUp , userLogin , create_Event , newVenue_Date_Time , add_co_host ,
                      edit_Venue_Date_Time , delete_Venue_Date_Time , add_guest , import_Guest ,
                      getAllGuest  , addAllGuestsToBookmark , deleteGuestInCollection , getEvent ,
-                     getFilteredEvent , feedback , deleteEvent , deleteUser
+                     getFilteredEvent , feedback , deleteEvent , deleteUser , getImages 
 
 }

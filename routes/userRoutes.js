@@ -42,6 +42,8 @@ const userController = require('../controller/userController')
                         router.post('/feedback/:eventId', userController.feedback)
     // API for delete user
                         router.delete('/deleteUser/:userId', userController.deleteUser)
-  
+    // API for get Images of event
+                        router.get('/getImages/:eventId', userController.getImages)
+    
 
 module.exports = router
