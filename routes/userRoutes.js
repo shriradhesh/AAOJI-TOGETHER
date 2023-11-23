@@ -13,7 +13,7 @@ const userController = require('../controller/userController')
                                   /* Event management */
 
     // API for create an event
-                         router.post('/create_Event',upload.array('images', 10), userController.create_Event)
+                         router.post('/create_Event/:userId',upload.array('images', 10), userController.create_Event)
     // API for add venue_Date_Time in event
                          router.post('/newVenue_Date_Time/:eventId' , userController.newVenue_Date_Time)
     // API for add co-host in event
@@ -32,8 +32,8 @@ const userController = require('../controller/userController')
                          router.post('/addAllGuestsToBookmark/:eventId', userController.addAllGuestsToBookmark)
     // APi for delete a Guest of collection in bookmark model
                         router.delete('/deleteGuestInCollection/:guestId', userController.deleteGuestInCollection) 
-    // APi for get Event by Id
-                        router.get('/getEvent/:eventId', userController.getEvent)
+    // APi for searchEvent Event by Id
+                        router.get('/searchEvent', userController.searchEvent)
    // APi for get filtered event 
                         router.get('/getFilteredEvent', userController.getFilteredEvent)
     // API for delete event using eventId
@@ -44,6 +44,12 @@ const userController = require('../controller/userController')
                         router.delete('/deleteUser/:userId', userController.deleteUser)
     // API for get Images of event
                         router.get('/getImages/:eventId', userController.getImages)
+    // API for delete co-host in event
+                        router.delete('/delete_co_Host/:co_hostId/:eventId', userController.delete_co_Host)
+    // API for getAll Events 
+                             router.get('/getAllEvents', userController.getAllEvents)
+    // API for get user Event
+                        router.get('/getUserEvent/:userId', userController.getUserEvent)
     
 
 module.exports = router

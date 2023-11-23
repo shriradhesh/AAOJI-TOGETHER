@@ -6,6 +6,10 @@ const eventSchema = new Schema({
     type: Schema.Types.ObjectId,
     ref: "userModel",
   },
+  adminId: {
+    type: Schema.Types.ObjectId,
+    ref: "Admin",
+  },
   title: {
     type: String,
     required: true
@@ -16,7 +20,7 @@ const eventSchema = new Schema({
   },
   event_Type: {
     type: String,
-    enum: ['Business_Conference', 'Music_Festivals', 'Birthday', 'Exhibitions', 'Wedding_Anniversary', 'sports', 'marriage'],
+    enum: ['Business_Conference', 'Music_Festivals', 'Birthday', 'Exhibitions', 'Wedding_Anniversary', 'sports', 'marriage' , 'Demo'],
     required: true
   },
   co_hosts: [

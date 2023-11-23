@@ -95,17 +95,24 @@ const FirebaseAdmin = require('../utils/firebaseService')
               return res.status(400).json({ message: `Missing ${field.replace('_', ' ')} field`, success: false });
             }
           }
+             // check for user 
+             const user = await userModel.findOne({ _id : userId })
+             if(!user)
+             {
+              return res.status(400).json({ success : false , message : `user not found`})
+             }
                                    
           // Check if an event with the same date and time already exists in the venue_Date_and_time 
           const existingEvent = await eventModel.findOne({
             'venue_Date_and_time.date': venue_Date_and_time.date,
             'venue_Date_and_time.start_time': venue_Date_and_time.start_time,
-            'venue_Date_and_time.end_time': venue_Date_and_time.end_time
+            'venue_Date_and_time.end_time': venue_Date_and_time.end_time,
+            'venue_Date_and_time.venue_location' : venue_Date_and_time.venue_location
           });
                      
 
           if (existingEvent) {
-            return res.status(400).json({ message: 'An event with the same venue, date, and time already exists', success: false });
+            return res.status(400).json({ message: ' venue with date and time already exist in venue location ', success: false });
           }
       
           // Process and store multiple image files
@@ -131,6 +138,7 @@ const FirebaseAdmin = require('../utils/firebaseService')
             ],
             images: imagePaths,
             userId : userId
+            
           });
       
           const saveEvent = await newEvent.save();
@@ -161,12 +169,13 @@ const FirebaseAdmin = require('../utils/firebaseService')
                     'end_time'     
             
                 ];
-
-                for (const field of requiredFields) {
-                    if (!req.body[field]) {
-                        return res.status(400).json({ message: `Missing ${field.replace('_', ' ')} field`, success: false });
-                    }
-                }
+                      for (const field of requiredFields){
+                        if(!req.body[field])
+                        {
+                          return res.status(400).json({ message : `missing ${field.replace('_', ' ')} field`, success: false})
+                        }
+                      }
+                
 
                 const event = await eventModel.findOne({ _id:eventId })
       
@@ -203,10 +212,10 @@ const FirebaseAdmin = require('../utils/firebaseService')
            }
 
 // add co host
-        const add_co_host = async (req,res)=>{
-            const eventId = req.params.eventId
-            const {co_host_Name , phone_no} = req.body  
-                    try {
+                    const add_co_host = async (req,res)=>{
+                        const eventId = req.params.eventId
+                        const {co_host_Name , phone_no} = req.body  
+                                try {
                          const requiredFields = [                
                                 'co_host_Name', 
                                 'phone_no',                                                                       
@@ -218,11 +227,14 @@ const FirebaseAdmin = require('../utils/firebaseService')
                                 }
                             }
 
-                        const existPhoneNumber = await eventModel.findOne({ phone_no });                   
-                         if (existPhoneNumber) {
-                            return res.status(400).json({ message: 'co-host with the same Number is Already Exist', success: false });
-                            }
-                    const event = await eventModel.findOne({ _id:eventId })                          
+                            // check for phone_no 
+                        const existPhoneNumber = await eventModel.findOne({ phone_no })
+                        if(existPhoneNumber)
+                        {
+                          return res.status(400).json({ message : `co host with the phone number :  ${phone_no} is already exist `})
+                        }
+
+                          const event = await eventModel.findOne({ _id:eventId })                          
                         if(!event)
                         {
                             return res.status(400).json({ success : false , message : `event not found with the eventId ${eventId}`})
@@ -242,212 +254,266 @@ const FirebaseAdmin = require('../utils/firebaseService')
                         })
                     }
         }
-// API for edit Venue_Date_Time 
-      const edit_Venue_Date_Time = async (req ,res)=>{
-        let eventId;
-        try {
-            const venueId = req.params.venueId;
-            eventId = req.params.eventId;
-            const {venue_Name , venue_location, date , start_time , end_time} = req.body
-             // Check for event existence
-            const existEvent = await eventModel.findOne({ _id: eventId });
-            if (!existEvent) {
-                return res.status(404).json({ success: false, message: "event not found" });
-            }
-                 // Check if the venue_Date_and_time array exists within event
+// API for delete co-host in event
+                             const delete_co_Host = async (req , res)=>{
+                              
+                                try {
+                                  const eventId = req.params.eventId
+                                  const co_hostId = req.params.co_hostId
 
-                if (!existEvent.venue_Date_and_time || !Array.isArray(existEvent.venue_Date_and_time)) {
-                    return res
-                    .status(400)
-                    .json({ success: false, message: "venue_Date_and_time array not found in the route" });
-                }
-
-                // Check for venueIndex
-            const existVenueIndex = existEvent.venue_Date_and_time.findIndex(
-                (venue) => venue._id.toString() === venueId
-            );
-            if (existVenueIndex === -1) {
-                return res.status(404).json({ success: false, message: "venue not found" });
-            }
-               const dates =  new Date(date)
-                // Update the properties of the venue
-                existEvent.venue_Date_and_time[existVenueIndex].venue_Name = venue_Name
-                existEvent.venue_Date_and_time[existVenueIndex].venue_location = venue_location;
-                existEvent.venue_Date_and_time[existVenueIndex].date = dates;
-                existEvent.venue_Date_and_time[existVenueIndex].start_time = start_time;
-                existEvent.venue_Date_and_time[existVenueIndex].end_time = end_time;
-                // Save the updated event back to the database
-              await existEvent.save();
-                
-                res.status(200).json({
-                    success: true,
-                    message: `venue is edited successfully for eventId: ${eventId}`,
-                });
-
-        } catch (error) {
-            return res.status(500).json({
-                success : false ,
-                message : 'there is an server error'
-            })
-        }
-      }
-
-// API for delete venue in a Event
-        const delete_Venue_Date_Time = async (req ,res)=>{
-            let eventId
-            try {
-                  const venueId = req.params.venueId
-                  const eventId = req.params.eventId
-
-                  const existEvent = await eventModel.findById(eventId)
-                  if(!existEvent)
-                  {
-                    res.status(400).json({
-                                  success : false,
-                                  message : 'event not found'
-                    })
-                  }
-
-                  // check for venue
-          const existVenueIndex = existEvent.venue_Date_and_time.findIndex(venue => venue._id.toString() === venueId)
-          if(existVenueIndex === -1)
-          {
-            return res.status(404).json({ success : false , message : " venue not found"})
-         }
-         
-         
-             // remove the venue from the venue_Date_and_Time array
-             existEvent.venue_Date_and_time.splice(existVenueIndex, 1)
-
-              await eventModel.findByIdAndUpdate(
-                    { _id:eventId },
-                    {venue_Date_and_time : existEvent.venue_Date_and_time}
-              )
-
-              res.status(200).json({
-                                 success : true,
-                                 message : `venue deleted successfully in eventId : ${eventId}`
-              })
-
-
-            } catch (error) {
-                return res.status(500).json({
-                    success : false,
-                    message : ' there is an server error'
-                })
-            }
-        }
-
-// add guest in event
-                    const add_guest = async (req , res)=>{
-                        try {
-                                const eventId = req.params.eventId
-                                const {Guest_Name , phone_no} = req.body
-
-                                    const requiredFields = [                
-                                        'Guest_Name', 
-                                        'phone_no'                                                                      
-                                   ];
-                    
-                                    for (const field of requiredFields) {
-                                        if (!req.body[field]) {
-                                            return res.status(400).json({ message: `Missing ${field.replace('_', ' ')} field`, success: false });
-                                        }
+                                  // check for event 
+                                  const event = await eventModel.findOne({ _id : eventId })
+                                  if(!event)
+                                  {
+                                    return res.status(400).json({
+                                                     success : false ,
+                                                      message : `event : ${eventId} not found`
+                                    })
+                                  }                                   
+                                                                      
+                                        // check for co-host existance
+                                    const exist_co_hostIndex = event.co_hosts.findIndex(co_host => co_host._id.toString() === co_hostId)
+                                    if(exist_co_hostIndex === -1)
+                                    {
+                                      return res.status(400).json({ 
+                                                                success : false ,
+                                                                message : `co_host not found`
+                                      })
                                     }
 
-                                    const event = await eventModel.findOne({ _id:eventId })
-                          
-                                if(!event)
-                                {
-                                    return res.status(400).json({ success : false , message : `event not found with the eventId ${eventId}`})
+
+                                  // remove the co-host from the co_host array
+                                  event.co_hosts.splice(exist_co_hostIndex , 1)
+
+                                  await eventModel.findByIdAndUpdate(
+                                    { _id : eventId },
+                                    { co_hosts : event.co_hosts}
+                                  )
+
+                                  res.status(200).json({
+                                    success : true,
+                                    message : `co-host deleted successfully in eventId : ${eventId}`
+                  })
+
+                                } catch (error) {
+                                  return res.status(500).json({
+                                                            success : false ,
+                                                            message : 'there is an server error'
+                                  })
                                 }
-                                      //  Guests is an array in the event model
-                                  const duplicateGuest = event.Guests.find((guest) => guest.phone_no === phone_no);
+                              }
+                             
+ 
+// API for edit Venue_Date_Time 
+                    const edit_Venue_Date_Time = async (req ,res)=>{
+                      let eventId;
+                      try {
+                          const venueId = req.params.venueId;
+                          eventId = req.params.eventId;
+                          const {venue_Name , venue_location, date , start_time , end_time} = req.body
+                          // Check for event existence
+                          const existEvent = await eventModel.findOne({ _id: eventId });
+                          if (!existEvent) {
+                              return res.status(404).json({ success: false, message: "event not found" });
+                          }
+                              // Check if the venue_Date_and_time array exists within event
+
+                                if(!existEvent.venue_Date_and_time || !Array.isArray(existEvent.venue_Date_and_time))
+                                {
+                                  return res.status(400).json({ success : false ,
+                                                                message : "venue date and time not found in the route"})
+                                }
+
+                              // Check for venueIndex
+                          const existVenueIndex = existEvent.venue_Date_and_time.findIndex(
+                              (venue) => venue._id.toString() === venueId
+                          );
+                          if (existVenueIndex === -1) {
+                              return res.status(404).json({ success: false, message: "venue not found" });
+                          }
+                            const dates =  new Date(date)
+                              // Update the properties of the venue
+                            existEvent.venue_Date_and_time[existVenueIndex].venue_Name = venue_Name
+                            existEvent.venue_Date_and_time[existVenueIndex].venue_location = venue_location
+                            existEvent.venue_Date_and_time[existVenueIndex].date = dates
+                            existEvent.venue_Date_and_time[existVenueIndex].start_time = start_time
+                            existEvent.venue_Date_and_time[existVenueIndex].end_time = end_time
+                            
+                              // Save the updated event back to the database
+                              await existEvent.save()
+                              return res.status(200).json({
+                                                          success : true ,
+                                                          message : `venue edited successfully for event : ${eventId}`
+                              })
+                          
+                                  } catch (error) {
+                                      return res.status(500).json({
+                                          success : false ,
+                                          message : 'there is an server error'
+                                      })
+                                  }
+                                }
+
+// API for delete venue in a Event
+                              const delete_Venue_Date_Time = async (req ,res)=>{
+                                  
+                                  try {
+                                        const venueId = req.params.venueId
+                                        const eventId = req.params.eventId
+                                            // check for event existance
+                                        const event = await eventModel.findById(eventId)
+                                        if(!event)
+                                        {
+                                          res.status(400).json({
+                                                        success : false,
+                                                        message : 'event not found'
+                                          })
+                                        }                                                    
+                                     
+                                        // check for venue existance
+                                    const existVenueIndex = event.venue_Date_and_time.findIndex(venue => venue._id.toString() === venueId)
+                                    if(existVenueIndex === -1)
+                                    {
+                                      return res.status(400).json({
+                                                             success : false ,
+                                                             message : "venue not found "
+                                      })
+                                    }
+                                  // remove the venue from the venue_Date_and_Time array
+                                  event.venue_Date_and_time.splice(existVenueIndex, 1)
+
+                                    await eventModel.findByIdAndUpdate(
+                                          { _id:eventId },
+                                          {venue_Date_and_time : event.venue_Date_and_time}
+                                    )
+
+                                    res.status(200).json({
+                                                      success : true,
+                                                      message : `venue deleted successfully in eventId : ${eventId}`
+                                    })
+
+
+                                  } catch (error) {
+                                      return res.status(500).json({
+                                          success : false,
+                                          message : ' there is an server error'
+                                      })
+                                  }
+                              }
+
+// add guest in event
+                            const add_guest = async (req, res) => {
+                              try {
+                                  const eventId = req.params.eventId;
+                                  const { Guest_Name, phone_no } = req.body;
+
+                                  const requiredFields = ['Guest_Name', 'phone_no'];
+
+                                  for (const field of requiredFields) {
+                                      if (!req.body[field]) {
+                                          return res.status(400).json({ message: `Missing ${field.replace('_', ' ')} field`, success: false });
+                                      }
+                                  }
+                                          // check for event
+
+                                  const event = await eventModel.findOne({ _id: eventId });
+
+                                  if (!event) {
+                                      return res.status(400).json({ success: false, message: `Event not found with the eventId ${eventId}` });
+                                  }
+                                            // check for duplicate guest
+                                 
+                                  const duplicateGuest =  event.Guests.find((guest) => guest.phone_no === phone_no);
 
                                   if (duplicateGuest) {
-                                    return res.status(400).json({ success: false, message: `Guest '${phone_no}' already exists in a event` });
+                                      return res.status(400).json({ success: false, message: `Guest with phone number '${phone_no}' already exists in the event` });
                                   }
+
+                                  // Add the new guest to the Guests array
                                   event.Guests.push({
-                                    Guest_Name,                                                                    
-                                    phone_no ,
-                                    status :0
-                                })
-                                await event.save()
-                                 
-                                return res.status(200).json({
-                                                success : true ,
-                                                 message : `Guest added successfully in eventId : ${eventId}`})
-                     }
-                      catch (error) {
-                            return res.status(500).json({
-                                success : false,
-                                message : ' there is an server error'
-                            })
-                        }
-                    }
+                                      Guest_Name,
+                                      phone_no,
+                                      status: 0,
+                                  });
+
+                                  await event.save();
+
+                                  return res.status(200).json({
+                                      success: true,
+                                      message: `Guest added successfully in eventId: ${eventId}`,
+                                  });
+                              } catch (error) {
+                                  console.error(error);
+                                  return res.status(500).json({
+                                      success: false,
+                                      message: 'There is a server error',
+                                  });
+                              }
+                            };
+
 
       // API for import guest from excel
-      const import_Guest = async (req, res) => {
-        try {
-          const eventId = req.params.eventId;
-      
-          // Check for event existence
-          const event = await eventModel.findOne({ _id: eventId });
-      
-          if (!event) {
-            return res.status(400).json({
-              success: false,
-              message: 'Event not found',
-            });
-          }
-      
-          const workbook = new ExcelJs.Workbook();
-          await workbook.xlsx.readFile(req.file.path);
-          const worksheet = workbook.getWorksheet(1);
-          const guestData = {};
-      
-          worksheet.eachRow((row, rowNumber) => {
-            if (rowNumber !== 1) {
-              // Skip the header row
-              const phone_no = row.getCell(2).value;
-              const rowData = {
-                Guest_Name: row.getCell(1).value,
-                phone_no: phone_no,
-              };
-              // Check if the phone_no already exists in the event's Guests array
-              if (!event.Guests.some((guest) => guest.phone_no === phone_no)) {
-                guestData[phone_no] = rowData;
-              }
-            }
-          });
-      
-          const uniqueGuestData = Object.values(guestData);
-      
-          if (uniqueGuestData.length > 0) {
-            // Use the $addToSet operator to add only unique phone numbers to the event
-            await eventModel.updateOne(
-              { _id: eventId },
-              { $addToSet: { 'Guests': { $each: uniqueGuestData } } }
-            );
-      
-            res.status(200).json({
-              success: true,
-              message: 'Guest data imported successfully',
-            });
-          } else {
-            res.status(200).json({
-              success: true,
-              message: 'No new guest data to import',
-            });
-          }
-        } catch (error) {
-          console.error(error);
-          return res.status(500).json({
-            success: false,
-            message: 'There is a server error',
-          });
-        }
-      };
+                          const import_Guest = async (req, res) => {
+                            try {
+                              const eventId = req.params.eventId;
+                          
+                              // Check for event existence
+                              const event = await eventModel.findOne({ _id: eventId });
+                          
+                              if (!event) {
+                                return res.status(400).json({
+                                  success: false,
+                                  message: 'Event not found',
+                                });
+                              }
+                          
+                              const workbook = new ExcelJs.Workbook();
+                              await workbook.xlsx.readFile(req.file.path);
+                              const worksheet = workbook.getWorksheet(1);
+                              const guestData = {};
+                          
+                              worksheet.eachRow((row, rowNumber) => {
+                                if (rowNumber !== 1) {
+                                  // Skip the header row
+                                  const phone_no = row.getCell(2).value;
+                                  const rowData = {
+                                    Guest_Name: row.getCell(1).value,
+                                    phone_no: phone_no,
+                                  };
+                                  // Check if the phone_no already exists in the event's Guests array
+                                  if (!event.Guests.some((guest) => guest.phone_no === phone_no)) {
+                                    guestData[phone_no] = rowData;
+                                  }
+                                }
+                              });
+                          
+                              const uniqueGuestData = Object.values(guestData);
+                          
+                              if (uniqueGuestData.length > 0) {
+                                // Use the $addToSet operator to add only unique phone numbers to the event
+                                await eventModel.updateOne(
+                                  { _id: eventId },
+                                  { $addToSet: { 'Guests': { $each: uniqueGuestData } } }
+                                );
+                          
+                                res.status(200).json({
+                                  success: true,
+                                  message: 'Guest data imported successfully',
+                                });
+                              } else {
+                                res.status(200).json({
+                                  success: true,
+                                  message: 'No new guest data to import',
+                                });
+                              }
+                            } catch (error) {
+                              console.error(error);
+                              return res.status(500).json({
+                                success: false,
+                                message: 'There is a server error',
+                              });
+                            }
+                          };
       
       
         // APi for get all Guests in event
@@ -584,23 +650,23 @@ const FirebaseAdmin = require('../utils/firebaseService')
                          }
                             
       // get an particular event
-                                 const getEvent = async (req , res)=>{
+                                 const searchEvent = async (req , res)=>{
                                   try {
-                                       const eventId = req.params.eventId                                     
+                                       const event_Type = req.body.event_Type                                     
 
                                        // check for event existnace
-                                       const event = await eventModel.findOne({ _id:eventId })
+                                       const event = await eventModel.findOne({ event_Type : event_Type })
                                        if(!event)
                                        {
                                         return res.status(400).json({
                                                                   success : false ,
-                                                                  message : `Event not found with these eventId : ${eventId}`
+                                                                  message : `Event not found `
                                         })
                                        }
                                        else
                                        {
                                         return res.status(200).json({
-                                                                   success : false,
+                                                                   success : true,
                                                                    message : `Event`,
                                                                    event_details : event
                                         })
@@ -634,20 +700,23 @@ const FirebaseAdmin = require('../utils/firebaseService')
                                               filter.updatedAt = {
                                                 $gte: new Date(latest_Update),
                                               };
-                                            }
-                                        
-                                            if (venue_location) {
-                                              filter['venue_Date_and_time.venue_location'] = venue_location;
-                                            }
-                                        
-                                            if (event_Type) {
-                                              filter.event_Type = event_Type;
-                                            }
-                                        
-                                            if (title) {
-                                              filter.title = title
-                                            }
-                                        
+                                            }                                     
+                                           
+                                                    if(event_Type)
+                                                    {
+                                                      filter.event_Type = event_Type
+                                                    }
+
+                                                    if(title)
+                                                    {
+                                                      filter.title = title
+                                                    }
+                                                    
+                                                    if(venue_location)
+                                                    {
+                                                      filter.venue_location = venue_location
+                                                    }
+
                                             if (date) {
                                               filter['venue_Date_and_time.date'] = new Date(date);
                                             } else if (year && month) {
@@ -659,7 +728,7 @@ const FirebaseAdmin = require('../utils/firebaseService')
                                                 $lt: endDate,
                                               };
                                             }
-                                        
+                                                    
                                             const events = await eventModel.find(filter);
                                         
                                             return res.status(200).json({
@@ -847,13 +916,74 @@ const FirebaseAdmin = require('../utils/firebaseService')
                                       };
                                       
                                       sendNotification();
+ // APi for get all events
+                        
+                const getAllEvents = async (req, res) => {
+                  try {
+                    const events = await eventModel.find({});
+                    if (events.length === 0) {
+                      return res.status(400).json({
+                        success: false,
+                        message: 'There are no events found',
+                      });
+                    }
+                    res.status(200).json({
+                      success: true,
+                      message: 'All Events',
+                      events_data: events,
+                    });
+                  } catch (error) {
+                    return res.status(500).json({
+                      success: false,
+                      message: 'There is a server error',
+                    });
+                  }
+                };
+    
+    // API for get user event 
+                  const getUserEvent = async(req ,res)=>{
+                    try {
+                      const userId = req.params.userId
+                      // check for user
+                      const user = await userModel.findOne({ _id : userId })
+                      if(!user)
+                      {
+                        return res.status(400).json({
+                                          success : false ,
+                                          message : 'user not found'
+                        })
+                      }
+                      // check for user event
+                      const event = await eventModel.find({ userId : userId })
+                      if(!event)
+                      {
+                        return res.status(400).json({
+                                          success : false ,
+                                          message : 'user event not found'
+                        })
+                      }
+                      else
+                      {
+                        return res.status(200).json({
+                                       success : true ,
+                                       message : 'user events',
+                                       events : event
+                        })
+                      }
 
-            
+                    } catch (error) {
+                      return res.status(500).json({
+                                  success : false ,
+                                  message : 'there is a server error '
+                      })
+                    }
+                  }
 
 module.exports = {
                     userSignUp , userLogin , create_Event , newVenue_Date_Time , add_co_host ,
                      edit_Venue_Date_Time , delete_Venue_Date_Time , add_guest , import_Guest ,
-                     getAllGuest  , addAllGuestsToBookmark , deleteGuestInCollection , getEvent ,
-                     getFilteredEvent , feedback , deleteEvent , deleteUser , getImages 
+                     getAllGuest  , addAllGuestsToBookmark , deleteGuestInCollection , searchEvent ,
+                     getFilteredEvent , feedback , deleteEvent , deleteUser , getImages , delete_co_Host , getAllEvents,
+                     getUserEvent
 
 }

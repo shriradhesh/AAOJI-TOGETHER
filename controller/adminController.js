@@ -11,6 +11,7 @@ const Adminforgetpass_sentEmail = require('../utils/AdminSendEmails')
 const crypto = require('crypto')
 const nodemailer = require('nodemailer')
 const bookmarkModel = require('../models/bookmarkModel')
+const feedbackModel = require('../models/feedbackModel')
                                              /* API's  */
 // API for login ADMIN 
 const login_Admin = async (req, res) => {
@@ -268,6 +269,17 @@ const forgetPassToken = async(req,res)=>{
                                                 try {
                                                     const adminId = req.params.AdminId;
                                                     const { firstName , lastName , email} = req.body
+
+                                                    const requiredFields = [
+                                                        'firstName' ,
+                                                        'lastName' ,
+                                                        'email'                    
+                                                    ];
+                                                     for (const field of requiredFields) {
+                                                        if (!req.body[field]) {
+                                                            return res.status(400).json({ message: `Missing ${field.replace('_', ' ')} field`, success: false });
+                                                        }
+                                                    }
                                             
                                                     // Check for admin existence
                                                     const admin = await Admin.findById(adminId);
@@ -313,104 +325,176 @@ const forgetPassToken = async(req,res)=>{
                                                     });
                                                 }
                                             };
-    
-                     
-                // API for get all events
-                               const getAllEvents = async (req,res)=>{
+                // API for create a demo event
+                                                const create_DemoEvent = async (req, res) => {
+                                                
+                                                        try {
+                                                        const adminId = req.params.adminId
+                                                        const { title, description, event_Type, venue_Date_and_time } = req.body;
+                                                    
+                                                        const requiredFields = ['title', 'description', 'event_Type', 'venue_Date_and_time'];
+                                                        for (const field of requiredFields) {
+                                                            if (!req.body[field]) {
+                                                            return res.status(400).json({ message: `Missing ${field.replace('_', ' ')} field`, success: false });
+                                                            }
+                                                        }
+                                                            // check for admin 
+                                                            const admin = await Admin.findOne({ _id : adminId })
+                                                            if(!admin)
+                                                            {
+                                                            return res.status(400).json({ success : false , message : `admin not found`})
+                                                            }
+                                                                                
+                                                        // Check if an event with the same date and time already exists in the venue_Date_and_time 
+                                                        const existingEvent = await eventModel.findOne({
+                                                            'venue_Date_and_time.date': venue_Date_and_time.date,
+                                                            'venue_Date_and_time.start_time': venue_Date_and_time.start_time,
+                                                            'venue_Date_and_time.end_time': venue_Date_and_time.end_time,
+                                                            'venue_Date_and_time.venue_location' : venue_Date_and_time.venue_location
+                                                        });
+                                                                    
+                                                
+                                                        if (existingEvent) {
+                                                            return res.status(400).json({ message: ' venue with date and time already exist in venue location ', success: false });
+                                                        }
+                                                    
+                                                        // Process and store multiple image files
+                                                        const imagePaths = [];
+                                                        if (req.files && req.files.length > 0) {
+                                                            req.files.forEach(file => {
+                                                            imagePaths.push(file.filename);
+                                                            });
+                                                        }
+                                                    
+                                                        const newEvent = new eventModel({
+                                                            title,
+                                                            description,
+                                                            event_Type,
+                                                            venue_Date_and_time: [
+                                                            {
+                                                                venue_Name: venue_Date_and_time.venue_Name,
+                                                                venue_location: venue_Date_and_time.venue_location,
+                                                                date: venue_Date_and_time.date,
+                                                                start_time: venue_Date_and_time.start_time,
+                                                                end_time: venue_Date_and_time.end_time
+                                                            }
+                                                            ],
+                                                            images: imagePaths,
+                                                            adminId : adminId
+                                                            
+                                                        });
+                                                    
+                                                        const saveEvent = await newEvent.save();
+                                                        res.status(200).json({
+                                                            success: true,
+                                                            message: 'Demo Event created successfully',
+                                                            event_details: saveEvent
+                                                        });
+                                                        } catch (error) {
+                                                            console.error(error);
+                                                        return res.status(500).json({
+                                                            success: false,
+                                                            message: 'There is a server error'
+                                                        });
+                                                        }
+                                                    };
+                                                
+        // APi for get Demo event by admin Id
+                                                const getDemoEvent = async (req ,res)=>{
+                                                    try {
+                                                    
+                                                        // check for event
+                                                        const event = await eventModel.find({
+                                                            event_Type: 'Demo' 
+                                                        })
+                                                        return res.status(200).json({
+                                                            success: true,
+                                                            message: 'Events fetched successfully',
+                                                            events: event,
+                                                        });
+                                                    } catch (error) {
+                                                        return res.status(500).json({
+                                                            success : false,
+                                                            message: ' there is an server error '
+                                                        })
+                                                    }
+                                                }   
+               
+                  
+
+            // APi for get all guests of a collection  in bookMark model
+                                        const getCollectionGuests = async (req ,res)=>{
+                                            try {
+                                                const collectionName = req.body.collectionName
+                                                const query = {
+                                                    collectionName
+                                                }
+                                                
+                                                const guest = await bookmarkModel.find(query)
+
+                                                if(!guest || guest.length === 0)
+                                                {
+                                                    return res.status(400).json({
+                                                                        success : false ,
+                                                                        message : `no guest found for the collection : ${collectionName}`
+                                                    })
+                                                }
+
+                                                res.status(200).json({
+                                                                    success : true,
+                                                                    message : `All Guests for the collection : ${collectionName}`,
+                                                                    all_guests : guest
+                                                })
+                                            } catch (error) {
+                                                console.error(error);
+                                                return res.status(500).json({
+                                                                        success : false ,
+                                                                        message : 'there is an server error'
+                                                })
+                                            }
+                                        }
+
+              // API for get all feedbacks of events 
+                            const getFeedbacksofEvent = async (req , res )=>{
                                 try {
-                                    const event = await eventModel.find({})
+                                    const eventId = req.params.eventId
+                                    // check for event
+                                    const event = await eventModel.findOne({ _id : eventId })
                                     if(!event)
                                     {
                                         return res.status(400).json({
-                                                                       success : false , 
-                                                                       message : 'there is no events found'
+                                                                success : false ,
+                                                                message : ' event not found '
                                         })
                                     }
-                                    res.status(200).json({
-                                        success: true,
-                                        message: 'All Events',
-                                        events_data: event,
-                                      });
-                                } catch (error) {
-                                    return res.status(500).json({
-                                                           success : false ,
-                                                           message : 'there is an server error'
-                                    })
-                                }
-                               }
-
-            // APi for get all guests of a collection  in bookMark model
-                             const getCollectionGuests = async (req ,res)=>{
-                                try {
-                                    const collectionName = req.body.collectionName
-                                    const query = {
-                                        collectionName
-                                    }
-                                    
-                                    const guest = await bookmarkModel.find(query)
-
-                                    if(!guest || guest.length === 0)
+                                    // check for feedbacks
+                                    const feedback = await feedbackModel.find({})
+                                    if(!feedback)
                                     {
-                                        return res.status(400).json({
-                                                               success : false ,
-                                                               message : `no guest found for the collection : ${collectionName}`
-                                        })
+                                    return res.status(400).json({
+                                                            success : false,
+                                                            message : 'there is no feedback yet'
+                                    })
+                                    }
+                                    else
+                                    {
+                                    return res.status(200).json({
+                                                                success : true ,
+                                                                message :`all feedbacks of event : ${eventId}`,
+                                                                feedback_details : feedback
+                                                                
+                                    })
                                     }
 
-                                    res.status(200).json({
-                                                        success : true,
-                                                        message : `All Guests for the collection : ${collectionName}`,
-                                                        all_guests : guest
-                                    })
                                 } catch (error) {
-                                    console.error(error);
-                                    return res.status(500).json({
-                                                             success : false ,
-                                                             message : 'there is an server error'
-                                    })
+                                
+                                return res.status(500).json({
+                                                            success : false ,
+                                                            message : ' there is an server error '
+                                })
                                 }
-                             }
-
-              // API for get all feedbacks of events 
-              const getFeedbacksofEvent = async (req , res )=>{
-                try {
-                      const eventId = req.params.eventId
-                      // check for event
-                      const event = await eventModel.findOne({ _id : eventId })
-                      if(!event)
-                      {
-                        return res.status(400).json({
-                                                success : false ,
-                                                message : ' event not found '
-                        })
-                      }
-                    // check for feedbacks
-                    const feedback = await feedbackModel.find({})
-                    if(!feedback)
-                    {
-                      return res.status(400).json({
-                                            success : false,
-                                            message : 'there is no feedback yet'
-                      })
-                    }
-                    else
-                    {
-                      return res.status(200).json({
-                                                 success : true ,
-                                                 message :`all feedbacks of event : ${eventId}`,
-                                                 feedback_details : feedback
-                                                 
-                      })
-                    }
-
-                } catch (error) {
-                  return res.status(500).json({
-                                             success : false ,
-                                             message : ' there is an server error '
-                  })
-                }
-               }
-                               
-           
+                            }
+                                            
+                        
         module.exports = { login_Admin  , changePassword , forgetPassToken , reset_password ,
-                               changeProfile , getAllEvents , getCollectionGuests , getFeedbacksofEvent , getAdmin}
+                               changeProfile ,create_DemoEvent, getCollectionGuests , getFeedbacksofEvent , getAdmin , getDemoEvent}

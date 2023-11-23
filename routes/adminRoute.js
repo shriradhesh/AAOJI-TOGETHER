@@ -17,14 +17,16 @@ const nodemailer = require('nodemailer')
                  router.post('/reset_password/:tokenValue', adminController.reset_password)
 // API for change ProfileImage also update
                  router.post('/changeProfile/:AdminId',upload.single('profileImage'), adminController.changeProfile)
-// API for getAll Events 
-                 router.get('/getAllEvents', adminController.getAllEvents)
+// API for create Demo event
+                  router.post('/create_DemoEvent/:adminId',upload.array('images', 10), adminController.create_DemoEvent)
 // API for get all Guests of a collection in Bookmark model
                   router.get('/getCollectionGuests', adminController.getCollectionGuests)
 // API for get all feedbacks of a event
                   router.get('/getFeedbacksofEvent/:eventId', adminController.getFeedbacksofEvent)
 // API for get admin details
                   router.get('/getAdmin/:adminId' , adminController.getAdmin)
+// API for get demo Event 
+                 router.get('/getDemoEvent', adminController.getDemoEvent)
 
 
 module.exports = router
