@@ -27,6 +27,10 @@ const nodemailer = require('nodemailer')
                   router.get('/getAdmin/:adminId' , adminController.getAdmin)
 // API for get demo Event 
                  router.get('/getDemoEvent', adminController.getDemoEvent)
+// APi for checkAndToggleStatus of event
+                router.post('/checkAndToggleStatus/:eventId', adminController.checkAndToggleStatus)
+// API for delete feedback of event
+                 router.delete('/deleteFeedback_OfEvent/:eventId/:feedbackId', adminController.deleteFeedback_OfEvent)
 
 
 module.exports = router

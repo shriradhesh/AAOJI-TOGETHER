@@ -1,1 +1,30 @@
 
+const checkAndToggleStatus = async (req, res) => {
+  try {
+    const eventId = req.params.eventId;
+
+    // Check if the event exists
+    const event = await eventModel.findById(eventId);
+    if (!event) {
+      return res.status(404).json({ success: false, message: 'Event not found' });
+    }
+
+    // Toggle the event status (assuming event_status is a boolean field)
+    event.event_status = !event.event_status;
+
+    // Save the updated event
+    const updatedEvent = await event.save();
+
+    res.status(200).json({
+      success: true,
+      message: 'Event status toggled successfully',
+      updatedEvent,
+    });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({
+      success: false,
+      message: 'There is a server error',
+    });
+  }
+};

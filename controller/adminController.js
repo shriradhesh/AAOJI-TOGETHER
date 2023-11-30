@@ -116,118 +116,118 @@ const login_Admin = async (req, res) => {
 
 
 // API for token generate and email send to Admin email
-const forgetPassToken = async(req,res)=>{
-               
-    try{
-      const { email } = req.body;
+                                        const forgetPassToken = async(req,res)=>{
+                                                    
+                                            try{
+                                            const { email } = req.body;
 
-      if (!email || !isValidEmail(email)) {
-        return res.status(400).json({
-                      success : false,
-                      message : "Valid email is required"
-        })
-       }
+                                            if (!email || !isValidEmail(email)) {
+                                                return res.status(400).json({
+                                                            success : false,
+                                                            message : "Valid email is required"
+                                                })
+                                            }
 
-       const admin = await Admin.findOne({ email })
+                                            const admin = await Admin.findOne({ email })
 
-       if(!admin)
-       {
-        return res.status(404).json({ success: false, message : ' admin with given email not found'})
-       }
-         
-           let token = await tokenModel.findOne({ adminId : admin._id })
-           if(!token){
-            token = await new tokenModel ({
-                adminId : admin._id,
-              token : crypto.randomBytes(32).toString("hex")
-            }).save()
-           }
+                                            if(!admin)
+                                            {
+                                                return res.status(404).json({ success: false, message : ' admin with given email not found'})
+                                            }
+                                                
+                                                let token = await tokenModel.findOne({ adminId : admin._id })
+                                                if(!token){
+                                                    token = await new tokenModel ({
+                                                        adminId : admin._id,
+                                                    token : crypto.randomBytes(32).toString("hex")
+                                                    }).save()
+                                                }
 
-           const link = `${process.env.AdminForgetpassURL}`
-           await Adminforgetpass_sentEmail(admin.email, "Password reset", link)
+                                                const link = `${process.env.AdminForgetpassURL}`
+                                                await Adminforgetpass_sentEmail(admin.email, "Password reset", link)
 
-           res.status(200).json({success : true ,messsage  : "password reset link sent to your email account" , token : token})
-          
-  }
-  catch(error)
-  {
-            console.error(error);
-    res.status(500).json({success : false , message : "An error occured" , error : error})
-  }
-  function isValidEmail(email) {
-    // email validation
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    return emailRegex.test(email);
-}
-}
+                                                res.status(200).json({success : true ,messsage  : "password reset link sent to your email account" , token : token})
+                                                
+                                        }
+                                        catch(error)
+                                        {
+                                                    console.error(error);
+                                            res.status(500).json({success : false , message : "An error occured" , error : error})
+                                        }
+                                        function isValidEmail(email) {
+                                            // email validation
+                                            const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+                                            return emailRegex.test(email);
+                                        }
+                                        }
 
 
                // admin reset password for using token
 
-               const reset_password = async (req , res)=>{
-                try {
-                    const { password , confirmPassword} = req.body
-                    const tokenValue = req.params.tokenValue
-                        
-                    if(!password )
-                    {
-                        return res.status(400).json({
-                                        success : false,
-                                        message : 'password  is required'
-                        })
-                    }
-                    if(!confirmPassword )
-                    {
-                        return res.status(400).json({
-                                        success : false,
-                                        message : 'confirmPassword  is required'
-                        })
-                    }
+                                    const reset_password = async (req , res)=>{
+                                        try {
+                                            const { password , confirmPassword} = req.body
+                                            const tokenValue = req.params.tokenValue
+                                                
+                                            if(!password )
+                                            {
+                                                return res.status(400).json({
+                                                                success : false,
+                                                                message : 'password  is required'
+                                                })
+                                            }
+                                            if(!confirmPassword )
+                                            {
+                                                return res.status(400).json({
+                                                                success : false,
+                                                                message : 'confirmPassword  is required'
+                                                })
+                                            }
 
-                    if(password !== confirmPassword)
-                    {
-                        return res.status(400).json({
-                                             success : false ,
-                                             message : 'password not matched'
-                        })
-                    }
+                                            if(password !== confirmPassword)
+                                            {
+                                                return res.status(400).json({
+                                                                    success : false ,
+                                                                    message : 'password not matched'
+                                                })
+                                            }
 
-                         // check if password reset token exist in token model 
-                         const token = await tokenModel.findOne({ token : tokenValue})
-                         if(!token)
-                         {
-                            return res.status(400).json({
-                                                   success : false,
-                                                   message : 'invalid token'
-                            })
-                         }
-                            const admin = await Admin.findById(token.adminId)
+                                                // check if password reset token exist in token model 
+                                                const token = await tokenModel.findOne({ token : tokenValue})
+                                                if(!token)
+                                                {
+                                                    return res.status(400).json({
+                                                                        success : false,
+                                                                        message : 'invalid token'
+                                                    })
+                                                }
+                                                    const admin = await Admin.findById(token.adminId)
 
-                            if(!admin)
-                            {
-                                return res.status(400).json({
-                                               success : false,
-                                               message : 'invalid admin '
-                                })
-                            }
-                         const hashedPassword = await bcrypt.hash(password , 10)
-                         admin.password = hashedPassword
-                         await admin.save()
+                                                    if(!admin)
+                                                    {
+                                                        return res.status(400).json({
+                                                                    success : false,
+                                                                    message : 'invalid admin '
+                                                        })
+                                                    }
+                                                const hashedPassword = await bcrypt.hash(password , 10)
+                                                admin.password = hashedPassword
+                                                await admin.save()
 
-                         await token.deleteOne({ token : tokenValue})
-                         
-                         res.status(200).json({
-                                       success : true ,
-                                       message : 'password reset successfully'
-                         })
-                    
-                } catch (error) {
-                    return res.status(500).json({
-                                success : false,
-                                message : 'there is an server error'
-                    })
-                }
-               }
+                                                await token.deleteOne({ token : tokenValue})
+                                                
+                                                res.status(200).json({
+                                                            success : true ,
+                                                            message : 'password reset successfully'
+                                                })
+                                            
+                                        } catch (error) {
+                                            return res.status(500).json({
+                                                        success : false,
+                                                        message : 'there is an server error'
+                                            })
+                                        }
+                                    }
 
                // APi to get admin details
                                 const getAdmin = async(req,res)=>{
@@ -240,7 +240,7 @@ const forgetPassToken = async(req,res)=>{
                                         return res.status(400).json({
                                                             success : false ,
                                                             message : ' Admin not found'
-                                        })
+                                                        })
                                      }
                                      else
                                      {
@@ -264,6 +264,7 @@ const forgetPassToken = async(req,res)=>{
                                         })
                                     }   
                                 }
+
     // Admin change profileImage
                                             const changeProfile = async (req, res) => {
                                                 try {
@@ -380,7 +381,8 @@ const forgetPassToken = async(req,res)=>{
                                                             }
                                                             ],
                                                             images: imagePaths,
-                                                            adminId : adminId
+                                                            adminId : adminId,
+                                                            event_status :  eventModel.schema.path('event_status').getDefault(),
                                                             
                                                         });
                                                     
@@ -481,8 +483,7 @@ const forgetPassToken = async(req,res)=>{
                                     return res.status(200).json({
                                                                 success : true ,
                                                                 message :`all feedbacks of event : ${eventId}`,
-                                                                feedback_details : feedback
-                                                                
+                                                                feedback_details : feedback                                                                
                                     })
                                     }
 
@@ -495,6 +496,79 @@ const forgetPassToken = async(req,res)=>{
                                 }
                             }
                                             
-                        
+              // API for check and Toggle user event status
+                  const checkAndToggleStatus = async (req ,res)=>{
+                    try {
+                        const eventId = req.params.eventId
+                        // check for event existance
+                   const event = await eventModel.findOne({ _id : eventId })
+                   if(!event)
+                   {
+                    return res.status(400).json({ success : false , message : 'event not found'})
+                   }
+                   // toggle the event status
+
+                   const currentStatus = event.event_status
+                   const newStatus = 1 - currentStatus
+                   event.event_status = newStatus
+                      // save the update status in event
+                       await event.save()
+                      return res.status(200).json({
+                                          success : true , 
+                                          message : 'Event status changed successfully',
+                                          
+                      })
+                    } catch (error) {
+                        return res.status(500).json({
+                                    success : false ,
+                                    message : ' there is an server error '
+                        })
+                    }
+                  }    
+    // API for delete feedback of event by feedback Id
+                            const deleteFeedback_OfEvent = async  (req , res)=>{
+                                try {
+                                       const {eventId , feedbackId } = req.params
+                                       
+                                       // check for event existance
+                                    const event = await eventModel.findOne({ _id : eventId })
+                                    if(!event)
+                                     {
+                                        return res.status(400).json({
+                                                     success : false ,
+                                                     message : 'event Not Found'
+                                        })
+                                     }
+                                    
+                            // check for feedback
+                              const feedback  = await feedbackModel.findOne({
+                                                            _id : feedbackId ,
+                                                            eventId : eventId
+                              })
+
+                              if(!feedback)
+                              {
+                                return res.status(400).json({
+                                                     success : false ,
+                                                     message : `there is no feedback in event by the given feedbackId : ${feedbackId}`
+                                })
+                              }
+                              else
+                              {
+                                      await feedbackModel.findByIdAndDelete(feedbackId)
+                                      return res.status(200).json({
+                                                         success : true ,
+                                                         message : 'feedback deleted successfully'
+                                      })
+                              }
+                                    
+                                } catch (error) {
+                                    return res.status(500).json({
+                                                      success : false ,
+                                                      message : 'server error'
+                                    })
+                                }
+                            }      
         module.exports = { login_Admin  , changePassword , forgetPassToken , reset_password ,
-                               changeProfile ,create_DemoEvent, getCollectionGuests , getFeedbacksofEvent , getAdmin , getDemoEvent}
+                               changeProfile ,create_DemoEvent, getCollectionGuests , getFeedbacksofEvent ,
+                                getAdmin , getDemoEvent , checkAndToggleStatus , deleteFeedback_OfEvent}

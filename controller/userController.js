@@ -47,7 +47,12 @@ const FirebaseAdmin = require('../utils/firebaseService')
                                 res.status(200).json({
                                     success : true,
                                     message : ' user created successfully',
-                                    user_details : saveUser
+                                    user_details : {
+                                      fullName : saveUser.fullName,
+                                      phone_no: saveUser.phone_no,
+                                      profileImage: saveUser.profileImage,
+                                      userId: saveUser._id,
+                                    }
                                 })
                         } catch (error) {
                            
@@ -87,7 +92,7 @@ const FirebaseAdmin = require('../utils/firebaseService')
     const create_Event = async (req, res) => {
         try {
           const userId = req.params.userId
-          const { title, description, event_Type, venue_Date_and_time } = req.body;
+          const { title, description, event_Type, venue_Date_and_time  } = req.body;
       
           const requiredFields = ['title', 'description', 'event_Type', 'venue_Date_and_time'];
           for (const field of requiredFields) {
@@ -108,8 +113,7 @@ const FirebaseAdmin = require('../utils/firebaseService')
             'venue_Date_and_time.start_time': venue_Date_and_time.start_time,
             'venue_Date_and_time.end_time': venue_Date_and_time.end_time,
             'venue_Date_and_time.venue_location' : venue_Date_and_time.venue_location
-          });
-                     
+          });                    
 
           if (existingEvent) {
             return res.status(400).json({ message: ' venue with date and time already exist in venue location ', success: false });
@@ -121,8 +125,7 @@ const FirebaseAdmin = require('../utils/firebaseService')
             req.files.forEach(file => {
               imagePaths.push(file.filename);
             });
-          }
-      
+          }      
           const newEvent = new eventModel({
             title,
             description,
@@ -137,7 +140,8 @@ const FirebaseAdmin = require('../utils/firebaseService')
               }
             ],
             images: imagePaths,
-            userId : userId
+            userId : userId,
+            event_status :  eventModel.schema.path('event_status').getDefault(),           
             
           });
       
@@ -155,6 +159,8 @@ const FirebaseAdmin = require('../utils/firebaseService')
           });
         }
       };
+
+
 // API for add multiple event 
            
            const newVenue_Date_Time = async (req ,res) =>{
@@ -174,8 +180,7 @@ const FirebaseAdmin = require('../utils/firebaseService')
                         {
                           return res.status(400).json({ message : `missing ${field.replace('_', ' ')} field`, success: false})
                         }
-                      }
-                
+                      }                
 
                 const event = await eventModel.findOne({ _id:eventId })
       
@@ -696,12 +701,12 @@ const FirebaseAdmin = require('../utils/firebaseService')
                                         
                                             const filter = {};
                                         
-                                            if (latest_Update) {
-                                              filter.updatedAt = {
-                                                $gte: new Date(latest_Update),
-                                              };
-                                            }                                     
-                                           
+                                                    if (latest_Update) 
+                                                    {
+                                                      filter.updatedAt = {
+                                                        $gte: new Date(latest_Update),
+                                                      };
+                                                    }   
                                                     if(event_Type)
                                                     {
                                                       filter.event_Type = event_Type
@@ -714,7 +719,7 @@ const FirebaseAdmin = require('../utils/firebaseService')
                                                     
                                                     if(venue_location)
                                                     {
-                                                      filter.venue_location = venue_location
+                                                      filter['venue_Date_and_time.venue_location'] = venue_location
                                                     }
 
                                             if (date) {

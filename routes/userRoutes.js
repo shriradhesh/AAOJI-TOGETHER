@@ -13,7 +13,7 @@ const userController = require('../controller/userController')
                                   /* Event management */
 
     // API for create an event
-                         router.post('/create_Event/:userId',upload.array('images', 10), userController.create_Event)
+                         router.post('/create_Event/:userId',upload.array('images', 100), userController.create_Event)
     // API for add venue_Date_Time in event
                          router.post('/newVenue_Date_Time/:eventId' , userController.newVenue_Date_Time)
     // API for add co-host in event
