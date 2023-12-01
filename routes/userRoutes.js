@@ -39,7 +39,7 @@ const userController = require('../controller/userController')
     // API for delete event using eventId
                         router.delete('/deleteEvent/:eventId', userController.deleteEvent)
    // API for feedback form
-                        router.post('/feedback/:eventId', userController.feedback)
+                        router.post('/feedback/:userId/:eventId', userController.feedback)
     // API for delete user
                         router.delete('/deleteUser/:userId', userController.deleteUser)
     // API for get Images of event

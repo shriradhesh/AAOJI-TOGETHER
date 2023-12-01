@@ -12,6 +12,9 @@ const crypto = require('crypto')
 const nodemailer = require('nodemailer')
 const bookmarkModel = require('../models/bookmarkModel')
 const feedbackModel = require('../models/feedbackModel')
+const termAndConditionModel = require('../models/termAndConditionModel')
+const privacyAndPolicyModel = require('../models/privacy&PolicyModel')
+
                                              /* API's  */
 // API for login ADMIN 
 const login_Admin = async (req, res) => {
@@ -169,7 +172,7 @@ const login_Admin = async (req, res) => {
                                             const { password , confirmPassword} = req.body
                                             const tokenValue = req.params.tokenValue
                                                 
-                                            if(!password )
+                                            if(!password)
                                             {
                                                 return res.status(400).json({
                                                                 success : false,
@@ -425,6 +428,7 @@ const login_Admin = async (req, res) => {
                   
 
             // APi for get all guests of a collection  in bookMark model
+
                                         const getCollectionGuests = async (req ,res)=>{
                                             try {
                                                 const collectionName = req.body.collectionName
@@ -568,7 +572,169 @@ const login_Admin = async (req, res) => {
                                                       message : 'server error'
                                     })
                                 }
-                            }      
+                            }    
+        
+        // APi for term and condition
+        const termAndCondition = async (req, res) => {
+            const { Heading, Description } = req.body;
+                       
+            try {
+                // Check if there's an existing term
+                const existingTerm = await termAndConditionModel.findOne();
+        
+                if (existingTerm) {
+                    // Update existing term
+                    existingTerm.Description = Description;
+                    existingTerm.Heading = Heading;
+        
+                    await existingTerm.save();
+        
+                    return res.status(200).json({ UpdateMessage: 'Term updated successfully', success: true });
+                } else {
+                    // Insert new term
+                    const newTerm = new termAndConditionModel({
+                        Heading: Heading,
+                        Description: Description,
+                    });
+        
+                    const savedTerm = await newTerm.save();
+        
+                    return res.status(200).json({ message: 'Term inserted successfully', id: savedTerm._id });
+                }
+            } catch (error) {
+               
+                return res.status(500).json({ success: false, error: 'Server error' });
+            }
+        };
+
+        // API for get term and Condition
+                    const getTermAndCondition = async (req,res) =>{
+                        try {
+                                const termAndCondition = await termAndConditionModel.find({})
+                                if(!termAndCondition)
+                                {
+                                    return res.status(400).json({ success : false ,
+                                                                   ExistanceMessage : 'no term and condition found '})
+                                }
+                                else
+                                {
+                                    return res.status(200).json({
+                                                        success : true ,
+                                                        successMessage : 'term and Conditions',
+                                                        details : termAndCondition
+                                    })
+                                }
+                        } catch (error) {
+                            return res.status(500).json({
+                                                   success : false ,
+                                                   serverError : 'server Error'
+                            })
+                        }
+                    }
+    
+        // API for privacy and policy
+                           const privacyAndPolicy = async (req ,res)=>{
+                            const { Heading , Description } = req.body
+                            try {
+                                // check if there is an existing privacy and policy
+                           const existingPrivacy_and_policy = await privacyAndPolicyModel.findOne()
+
+                           if(existingPrivacy_and_policy)
+                           {
+                            existingPrivacy_and_policy.Heading = Heading
+                            existingPrivacy_and_policy.Description = Description
+
+                            await existingPrivacy_and_policy.save()
+
+                            return res.status(200).json({
+                                                         success : true ,
+                                                        UpdateMessage : 'Privacy and Policy updated successfully',
+                                                        privacy_and_policy : existingPrivacy_and_policy
+                            })
+                           }
+                           else
+                           {
+                                const newPrivacy_and_policy = new privacyAndPolicyModel({
+                                    Heading : Heading,
+                                    Description : Description
+                                })
+
+                                  const savedprivacy_and_policy = await newPrivacy_and_policy.save()
+
+                                  return res.status(200).json({
+                                                       success : true ,
+                                                       createdmessage : 'Privacy and Policy created Successfully',
+                                                       privacy_and_policy : savedprivacy_and_policy
+
+                                  })
+                           }
+
+                            } catch (error) {
+                                return res.status(500).json({
+                                                   success : false ,
+                                                   serverErrorMessage : 'Server Error'
+                                })
+                            }
+                           }
+        
+              // API for get privacy and policy
+                                 const getPrivacy_and_Policy = async (req ,res) =>{
+                                    try {
+                                         // check for privacy and policy existance
+                                    const privacy_and_policy = await privacyAndPolicyModel.find({ })
+                                        if(!privacyAndPolicy)
+                                        {
+                                            return res.status(400).json({
+                                                                 success : false ,
+                                                                  privacyExistanceMessage : 'no privacy and policy found '
+                                            })
+                                        }
+                                        else
+                                        {
+                                            return res.status(200).json({
+                                                                success : true ,
+                                                                successMessage : 'privacy and policy',
+                                                                  Data : privacy_and_policy
+                                            })
+                                        }
+                                        
+
+                                    } catch (error) {
+                                        return res.status(500).json({
+                                                           success : false ,
+                                                           serverErrorMessage : 'server error'
+                                        })
+                                    }
+                                 } 
+            // API for get all fedback 
+                             const getAllFeedback = async ( req ,res)=> {
+                                            try {
+                                                // get all feedback
+                                        const getAllFeedback = await feedbackModel.find({})
+                                        if(!getAllFeedback)
+                                        {
+                                            return res.status(400).json({
+                                                              success : false ,
+                                                              feedbackErrorMessage : 'there is no feedback'
+                                            })
+                                        }
+                                        else
+                                        {
+                                            return res.status(200).json({
+                                                               success : true ,
+                                                               successMessage : ' all feedback' ,
+                                                               Data : getAllFeedback
+                                            })
+                                        }
+                                            } catch (error) {
+                                                return res.status(500).json({
+                                                                     success : false ,
+                                                                     serverErrorMessage : 'server error'
+                                                })
+                                            }
+                             }
+
         module.exports = { login_Admin  , changePassword , forgetPassToken , reset_password ,
                                changeProfile ,create_DemoEvent, getCollectionGuests , getFeedbacksofEvent ,
-                                getAdmin , getDemoEvent , checkAndToggleStatus , deleteFeedback_OfEvent}
+                                getAdmin , getDemoEvent , checkAndToggleStatus , deleteFeedback_OfEvent , termAndCondition ,
+                                getTermAndCondition , privacyAndPolicy , getPrivacy_and_Policy , getAllFeedback}

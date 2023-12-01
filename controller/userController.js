@@ -73,7 +73,14 @@ const FirebaseAdmin = require('../utils/firebaseService')
                     
                         if (user) {
                             
-                            return res.json({ message: 'user Login Successful', success: true, data: user });
+                            return res.json({ message: 'user Login Successful', 
+                                                 success: true,
+                                                  data: {
+                                                        _id : user._id,
+                                                        fullName : user.fullName,
+                                                        phone_no : user.phone_no ,
+                                                        profileImage : user.profileImage
+                                                  } });
                         } else {
                             return res.status(400).json({ message: 'phone_no not found', success: false });
                         }
@@ -778,7 +785,7 @@ const FirebaseAdmin = require('../utils/firebaseService')
             // APi for give feedback
                              const feedback = async (req ,res)=>{
                               try {
-                                    const eventId = req.params.eventId
+                                    const {userId , eventId } = req.params
                                     const { rating , message , feedback_Type } = req.body                                    
 
                                     const requiredFields = [
@@ -791,6 +798,15 @@ const FirebaseAdmin = require('../utils/firebaseService')
                                           return res.status(400).json({ message: `Missing ${field.replace('_', ' ')} field`, success: false });
                                       }
                                   }
+                                          //check for user
+                                    const user = await userModel.findOne({ _id : userId})
+                                    if(!user)
+                                    {
+                                      return res.status(400).json({
+                                                       success : false ,
+                                                       userExistanceMessage  : 'no user found'
+                                      })
+                                    }
                                       // check for event existance
                                       const event = await eventModel.findOne({ _id : eventId })
                                       if(!event)
@@ -814,7 +830,8 @@ const FirebaseAdmin = require('../utils/firebaseService')
                                       rating ,
                                       message,
                                       feedback_Type,
-                                      eventId : eventId
+                                      eventId : eventId ,
+                                      userId : userId
 
                                     })
                               

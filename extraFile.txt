@@ -1,30 +1,67 @@
+const termAndCondition = async (req, res) => {
+    try {
+        const adminId = req.params.adminId;
+        const termAndConditionId = req.params.termAndConditionId; // Assuming the termAndConditionId is in the URL parameters.
+        const { Heading, Description } = req.body;
 
-const checkAndToggleStatus = async (req, res) => {
-  try {
-    const eventId = req.params.eventId;
+        // Check for admin
+        const admin = await Admin.findOne({ _id: adminId });
+        if (!admin) {
+            return res.status(400).json({
+                success: false,
+                AdminExistanceMessage: 'Admin not found',
+            });
+        }
 
-    // Check if the event exists
-    const event = await eventModel.findById(eventId);
-    if (!event) {
-      return res.status(404).json({ success: false, message: 'Event not found' });
+        // Validation for required fields
+        const requiredFields = ['Heading', 'Description'];
+        for (const field of requiredFields) {
+            if (!req.body[field]) {
+                return res.status(400).json({
+                    RequiredFieldMessage: `Missing ${field.replace('_', ' ')} field`,
+                    success: false,
+                });
+            }
+        }
+
+        // Check if termAndConditionId exists in termAndConditionModel
+        let existingTermAndCondition = await termAndConditionModel.findOne({
+            _id: termAndConditionId,
+        });
+
+        if (existingTermAndCondition) {
+            // Update the existing record with new Heading and Description
+            existingTermAndCondition = await termAndConditionModel.findOneAndUpdate(
+                { _id: termAndConditionId },
+                { $set: { Heading, Description } },
+                { new: true }
+            );
+
+            return res.json({
+                success: true,
+                message: 'Term and condition updated successfully',
+                data: existingTermAndCondition,
+            });
+        } else {
+            // Create a new termAndConditionModel
+            const newTermAndCondition = new termAndConditionModel({
+                Heading,
+                Description,
+            });
+
+            await newTermAndCondition.save();
+
+            return res.json({
+                success: true,
+                message: 'New term and condition created successfully',
+                data: newTermAndCondition,
+            });
+        }
+    } catch (error) {
+        console.error(error);
+        return res.status(500).json({
+            success: false,
+            serverErrorMessage: 'Server Error',
+        });
     }
-
-    // Toggle the event status (assuming event_status is a boolean field)
-    event.event_status = !event.event_status;
-
-    // Save the updated event
-    const updatedEvent = await event.save();
-
-    res.status(200).json({
-      success: true,
-      message: 'Event status toggled successfully',
-      updatedEvent,
-    });
-  } catch (error) {
-    console.error(error);
-    return res.status(500).json({
-      success: false,
-      message: 'There is a server error',
-    });
-  }
 };
