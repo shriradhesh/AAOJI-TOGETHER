@@ -6,6 +6,9 @@ const feedbackSchema = new Schema({
     type: Schema.Types.ObjectId,
     ref: "userModel",
   },
+      userName : {
+      type : String
+      },
     eventId: {
         type: Schema.Types.ObjectId,
        

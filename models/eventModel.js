@@ -6,9 +6,15 @@ const eventSchema = new Schema({
     type: Schema.Types.ObjectId,
     ref: "userModel",
   },
+  userName : {
+    type : String
+  },
   adminId: {
     type: Schema.Types.ObjectId,
     ref: "Admin",
+  },
+  adminName : {
+    type : String
   },
   title: {
     type: String,

@@ -16,6 +16,11 @@ const userSchema = new mongoose.Schema({
         type: String,
         default: '',
     },
+    user_status: {
+        type: Number,
+        enum: [0,1],    
+        default : 1
+      },
     
     
 }, {timestamps: true})

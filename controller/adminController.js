@@ -14,6 +14,7 @@ const bookmarkModel = require('../models/bookmarkModel')
 const feedbackModel = require('../models/feedbackModel')
 const termAndConditionModel = require('../models/termAndConditionModel')
 const privacyAndPolicyModel = require('../models/privacy&PolicyModel')
+const userModel = require('../models/userModel')
 
                                              /* API's  */
 // API for login ADMIN 
@@ -59,24 +60,35 @@ const login_Admin = async (req, res) => {
                         try {
                             const id = req.params.id
                             const {oldPassword , newPassword , confirmPassword} = req.body
-
-                            const requiredFields = [
-                                'oldPassword',
-                                'newPassword',       
-                                'confirmPassword',     
-                            ];
-                        
-                            for (const field of requiredFields) {
-                                if (!req.body[field]) {
-                                    return res.status(400).json({ message: `Missing ${field.replace('_', ' ')} field`, success: false });
-                                }
+                           
+                            if(!oldPassword)
+                            {
+                              return res.status(400).json({
+                                                 success : false ,
+                                                 oldPasswordMessage : 'old password required'
+                              })
                             }
+                            if(!newPassword)
+                            {
+                              return res.status(400).json({
+                                                 success : false ,
+                                                 NewPasswordMessage : 'newPassword required'
+                              })
+                            }
+                            if(!confirmPassword)
+                            {
+                              return res.status(400).json({
+                                                 success : false ,
+                                                 confirmPasswordMessage : 'confirmPassword required'
+                              })
+                            }
+                           
                                    // check if new Password is matched with confirm password
                                 if(newPassword !== confirmPassword)
                                 {
                                     return res.status(400).json({
                                                          success : false ,
-                                                         message  : 'password not matched'
+                                                         passwordMatchMessage  : 'password not matched'
                                     })
                                 }  
                             
@@ -86,7 +98,7 @@ const login_Admin = async (req, res) => {
                                 {
                                     res.status(400).json({
                                                   success : false ,
-                                                  message : ' admin not found'
+                                                  checkAdminMessage : ' admin not found'
                                     })
                                 }
                                 else
@@ -106,13 +118,13 @@ const login_Admin = async (req, res) => {
 
                                       return res.status(200).json({
                                                                success : true ,
-                                                               message : 'password change successfully'
+                                                               successMessage : 'password change successfully'
                                       })
                                 }
                         } catch (error) {
                             return res.status(500).json({
                                                success : false ,
-                                               message : ' there is an server error '
+                                               serverErrorMessage : ' there is an server error '
                             })
                         }
                      }
@@ -348,7 +360,10 @@ const login_Admin = async (req, res) => {
                                                             {
                                                             return res.status(400).json({ success : false , message : `admin not found`})
                                                             }
-                                                                                
+                                                            
+                                                            
+                                                         const adminName = admin.firstName
+
                                                         // Check if an event with the same date and time already exists in the venue_Date_and_time 
                                                         const existingEvent = await eventModel.findOne({
                                                             'venue_Date_and_time.date': venue_Date_and_time.date,
@@ -386,6 +401,7 @@ const login_Admin = async (req, res) => {
                                                             images: imagePaths,
                                                             adminId : adminId,
                                                             event_status :  eventModel.schema.path('event_status').getDefault(),
+                                                            adminName : adminName
                                                             
                                                         });
                                                     
@@ -723,7 +739,7 @@ const login_Admin = async (req, res) => {
                                             return res.status(200).json({
                                                                success : true ,
                                                                successMessage : ' all feedback' ,
-                                                               Data : getAllFeedback
+                                                               Data : getAllFeedback  
                                             })
                                         }
                                             } catch (error) {
@@ -734,7 +750,100 @@ const login_Admin = async (req, res) => {
                                             }
                              }
 
+            // API for delete particular feedback
+                                      const deleteFeedback = async (req ,res)=>{
+                                        try {
+                                            const feedbackId = req.params.feedbackId
+                                              // check for feedback
+                                            const feedback = await feedbackModel.findOneAndDelete({ _id : feedbackId })
+                                            if(!feedback)
+                                            {
+                                                return res.status(400).json({
+                                                              success : false ,
+                                                              feedbackErrorMessage : 'there is no feedback for given Id'
+                                                })
+                                            }
+                                            else
+                                            {
+                                                return res.status(200).json({
+                                                                success : true,
+                                                                successMessage : 'feedback deleted successfully'
+                                                })
+                                            }
+                                        } catch (error) {
+                                            return res.status(500).json({
+                                                             success : false ,
+                                                             serverErrorMessage : 'server error'
+                                            })
+                                        }
+                                      }
+
+        
+        // API for get all user
+                                const getAllUser = async (req ,res)=>{
+                                    try {
+                                            // check for users
+                                    const users = await userModel.find({})
+                                    if(!users)
+                                    {
+                                            return res.status(400).json({
+                                                      success : false ,
+                                                       userExistanceMessage : 'no Users found'
+                                            })
+                                    }else
+                                    {
+                                        return res.status(200).json({
+                                                                 success : true ,
+                                                                 successMessage : 'all users',
+                                                                 user_details : users   
+                                        })
+                                    }
+                                    } catch (error) {
+                                        return res.status(500).json({
+                                                      success : false ,
+
+                                        })
+                                    }
+                                }               
+                                
+        // API for check and toggle status for user
+                               const checkAndToggleStatus_Of_User = async (req ,res )=>{
+                                try {
+                                        const userId = req.params.userId
+                                // check for user
+                                   const user = await userModel.findOne({ _id : userId })
+                                   if(!user)
+                                   {
+                                        return res.status(400).json({
+                                                   success : false ,
+                                                   userExistanceMessage : 'user not found'
+                                        })
+                                   }
+
+                                   // toggle the User status
+
+                                    const currentStatus = user.user_status
+                                    const newStatus = 1 - currentStatus
+                                    user.user_status = newStatus
+
+                                    // save the update status in event
+                                    await user.save()
+                                    return res.status(200).json({
+                                                        success : true , 
+                                                        message : 'User status changed successfully',                                                        
+                                    })
+                                } catch (error) {
+                                     return res.status(500).json({
+                                                       success : false ,
+                                                        serverErrorMessage : 'server error'
+                                     })
+                                }
+                               }
+
         module.exports = { login_Admin  , changePassword , forgetPassToken , reset_password ,
                                changeProfile ,create_DemoEvent, getCollectionGuests , getFeedbacksofEvent ,
                                 getAdmin , getDemoEvent , checkAndToggleStatus , deleteFeedback_OfEvent , termAndCondition ,
-                                getTermAndCondition , privacyAndPolicy , getPrivacy_and_Policy , getAllFeedback}
+                                getTermAndCondition , privacyAndPolicy , 
+                                getPrivacy_and_Policy , getAllFeedback , deleteFeedback , getAllUser ,
+                                checkAndToggleStatus_Of_User  
+                            }

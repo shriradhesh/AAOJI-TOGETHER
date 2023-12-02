@@ -15,53 +15,62 @@ const FirebaseAdmin = require('../utils/firebaseService')
                                 /* API for users */
     // API for user signup
      
-                     const userSignUp = async (req,res)=>{
-                        try {
-                             const { fullName , phone_no} = req.body
-                             const requiredFields = [
-                                'fullName' ,
-                                'phone_no'                        
-                            ];
-                             for (const field of requiredFields) {
-                                if (!req.body[field]) {
-                                    return res.status(400).json({ message: `Missing ${field.replace('_', ' ')} field`, success: false });
-                                }
-                            }
-
-                                // Check for Phone number
-                        const existPhoneNumber = await userModel.findOne({ phone_no });
-                    
-                        if (existPhoneNumber) {
-                          return res.status(400).json({ message: 'user with the same Number is Already Exist', success: false });
-                        }
-
-                        const imagePath = req.file.filename;
-
-                        const newUser = new userModel({
-                            fullName ,
-                            phone_no,
-                            profileImage : imagePath
-                        })
-                                const saveUser = await newUser.save()
-
-                                res.status(200).json({
-                                    success : true,
-                                    message : ' user created successfully',
-                                    user_details : {
-                                      fullName : saveUser.fullName,
-                                      phone_no: saveUser.phone_no,
-                                      profileImage: saveUser.profileImage,
-                                      userId: saveUser._id,
-                                    }
-                                })
-                        } catch (error) {
-                           
-                            res.status(500).json({
-                                success : false,
-                                message : 'there is an server error '
-                            })
-                        }
-                     }
+    const userSignUp = async (req, res) => {
+      try {
+          const { fullName, phone_no } = req.body;
+  
+          // Validation
+          const requiredFields = ['fullName', 'phone_no'];
+          for (const field of requiredFields) {
+              if (!req.body[field]) {
+                  return res.status(400).json({
+                      success: false,
+                      message: `Missing ${field.replace('_', ' ')} field`,
+                  });
+              }
+          }
+  
+          // Check if phone number already exists
+          const existPhoneNumber = await userModel.findOne({ phone_no });
+          if (existPhoneNumber) {
+              return res.status(400).json({
+                  success: false,
+                  message: 'User with the same number already exists',
+              });
+          }
+  
+          // Save user
+          const imagePath = req.file.filename;
+          const newUser = new userModel({
+              fullName,
+              phone_no,
+              profileImage: imagePath,
+              user_status: userModel.schema.path('user_status').getDefault(),
+          });
+  
+          const saveUser = await newUser.save();
+  
+          // Response
+          res.status(200).json({
+              success: true,
+              message: 'User created successfully',
+              user_details: {
+                  fullName: saveUser.fullName,
+                  phone_no: saveUser.phone_no,
+                  profileImage: saveUser.profileImage,
+                  userId: saveUser._id,
+                  user_status: saveUser.user_status,
+              },
+          });
+      } catch (error) {
+          console.error(error); // Log the error for debugging
+          res.status(500).json({
+              success: false,
+              message: 'There is a server error',
+          });
+      }
+  };
+  
 
     // user login
                     const userLogin = async(req,res)=>{                      
@@ -113,7 +122,7 @@ const FirebaseAdmin = require('../utils/firebaseService')
              {
               return res.status(400).json({ success : false , message : `user not found`})
              }
-                                   
+                 const userName = user.fullName                 
           // Check if an event with the same date and time already exists in the venue_Date_and_time 
           const existingEvent = await eventModel.findOne({
             'venue_Date_and_time.date': venue_Date_and_time.date,
@@ -148,6 +157,7 @@ const FirebaseAdmin = require('../utils/firebaseService')
             ],
             images: imagePaths,
             userId : userId,
+            userName : userName,
             event_status :  eventModel.schema.path('event_status').getDefault(),           
             
           });
@@ -807,6 +817,8 @@ const FirebaseAdmin = require('../utils/firebaseService')
                                                        userExistanceMessage  : 'no user found'
                                       })
                                     }
+
+                                    const userName = user.fullName
                                       // check for event existance
                                       const event = await eventModel.findOne({ _id : eventId })
                                       if(!event)
@@ -831,7 +843,8 @@ const FirebaseAdmin = require('../utils/firebaseService')
                                       message,
                                       feedback_Type,
                                       eventId : eventId ,
-                                      userId : userId
+                                      userId : userId ,
+                                      userName : userName
 
                                     })
                               

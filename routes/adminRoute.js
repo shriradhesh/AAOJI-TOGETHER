@@ -41,6 +41,12 @@ const nodemailer = require('nodemailer')
                   router.get('/getPrivacy_and_Policy', adminController.getPrivacy_and_Policy)
 // APi for get all feedback
                   router.get('/getAllFeedback', adminController.getAllFeedback)
+// API for delete particular feedback by feedbackId
+                  router.delete('/deleteFeedback/:feedbackId', adminController.deleteFeedback) ,
+// API for get all users
+                 router.get('/getAllUser', adminController.getAllUser)
+// API for toggle and change user status
+                 router.post('/checkAndToggleStatus_Of_User/:userId' , adminController.checkAndToggleStatus_Of_User )
 
 
 module.exports = router
