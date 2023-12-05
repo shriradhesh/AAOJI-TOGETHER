@@ -21,7 +21,9 @@ const userSchema = new mongoose.Schema({
         enum: [0,1],    
         default : 1
       },
-    
+    email : {
+        type : String
+    }
     
 }, {timestamps: true})
 

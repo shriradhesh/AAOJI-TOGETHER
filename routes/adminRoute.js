@@ -47,6 +47,18 @@ const nodemailer = require('nodemailer')
                  router.get('/getAllUser', adminController.getAllUser)
 // API for toggle and change user status
                  router.post('/checkAndToggleStatus_Of_User/:userId' , adminController.checkAndToggleStatus_Of_User )
-
+// API for get adminNotification
+                 router.get('/getAdminNotification/:adminId' , adminController.getAdminNotification)
+// APi to send notification to all user
+                router.post('/sendNotification_to_allUser', adminController.sendNotification_to_allUser)
+// API to send notification to particular user
+                router.post('/sendNotification_to_user' , adminController.sendNotification_to_user)
+// APi to send notification according to admin choice
+                 router.post('/sendNotifications' , adminController.sendNotifications)
+// API to get all users notification
+                 router.get('/getAll_Users_Notificatation', adminController.getAll_Users_Notificatation)
+// APi to delete notification 
+                 router.delete('/deleteNotifcationById/:notificationId' , adminController.deleteNotifcationById)
+            
 
 module.exports = router

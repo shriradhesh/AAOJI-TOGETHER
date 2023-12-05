@@ -15,6 +15,10 @@ const feedbackModel = require('../models/feedbackModel')
 const termAndConditionModel = require('../models/termAndConditionModel')
 const privacyAndPolicyModel = require('../models/privacy&PolicyModel')
 const userModel = require('../models/userModel')
+const AdminNotificationDetail = require ('../models/AdminNotification')
+const UsersNotificationModel = require('../models/userNotifications')
+const notificationEmail = require('../utils/AdminSendEmails')
+
 
                                              /* API's  */
 // API for login ADMIN 
@@ -840,10 +844,305 @@ const login_Admin = async (req, res) => {
                                 }
                                }
 
+          // APi for get Admin notification
+          const getAdminNotification = async (req, res) => {
+            try {
+              const adminId = req.params.adminId;
+          
+              // check for admin
+              const admin = await Admin.findOne({ _id: adminId });
+          
+              if (!admin) {
+                return res.status(404).json({
+                  success: false,
+                  adminExistanceMessage: 'Admin not found with the given Id',
+                });
+              }
+          
+              // check for notification
+              const notifications = await AdminNotificationDetail.find({ }); 
+          
+              if (notifications.length === 0) {
+                return res.status(404).json({
+                  success: false,
+                  notificationExistMessage: 'No notifications for this Admin',
+                });
+              } else {
+                const sortedNotifications = notifications.sort((a, b) => b.createdAt - a.createdAt);
+                return res.status(200).json({
+                  success: true,
+                  successMessage: 'Admin notifications',
+                  notification_Details: sortedNotifications,
+                });
+              }
+            } catch (error) {
+              console.error('Error:', error);
+              return res.status(500).json({
+                success: false,
+                serverErrorMessage: 'Server Error',
+              });
+            }
+          };
+// API to send Notification to all user
+                                const sendNotification_to_allUser = async (req, res) => {
+                                    try {
+                                    const { title, message } = req.body;
+                                
+                                    const requiredFields = ['title', 'message'];
+                                
+                                    for (const field of requiredFields) {
+                                        if (!req.body[field]) {
+                                        return res.status(400).json({
+                                            success: false,
+                                            message: `Missing ${field.replace('_', ' ')} field `,
+                                        });
+                                        }
+                                    }
+                                
+                                    // Get all users
+                                    const users = await userModel.find({});
+                                
+                                    if (users.length === 0) {
+                                        return res.status(400).json({
+                                        success: false,
+                                        message: 'There is no user in UserModel',
+                                        });
+                                    }
+                                
+                                    // Send the same notification email to all users
+                                    const notifications = await Promise.all(users.map(async (user) => {
+                                        // Prepare email content
+                                        let messageContent = `
+                                        Dear ${user.fullName}, 
+                                        *************************************************************** 
+                                        ${title} 
+                                        ---------
+                                        ${message}
+                                        ****************************************************************
+                                        `;
+                                
+                                        // Send email notification to the user
+                                        await notificationEmail(user.email, 'Notification', messageContent);
+                                
+                                        // Add user-specific data to the notifications array
+                                    return {
+                                        userId: user._id,
+                                        title,
+                                        message,
+                                        userEmail: user.email,
+                                        }
+                                    }))
+                                
+                                    // Save a single record in UsersNotificationModel
+                                    const savedNotification = await UsersNotificationModel.create({
+                                        title,
+                                        message,
+                                        date : new Date()
+                                    });
+                                
+                                    return res.status(200).json({
+                                        success: true,
+                                        message: 'Notifications sent to user email',
+                                        notification_details: savedNotification,
+                                    });
+                                    } catch (error) {
+                                    console.error(error);
+                                    return res.status(500).json({
+                                        success: false,
+                                        message: 'Server error',
+                                    });
+                                    }
+                                };
+  // Api to send notification to particular user
+                                        const sendNotification_to_user = async (req, res) => {
+                                            try {
+                                                const { userId, title, message } = req.body;
+
+                                                // Validate input fields
+                                                const requiredFields = [ 'title', 'message'];
+
+                                                for (const field of requiredFields) {
+                                                    if (!req.body[field]) {
+                                                        return res.status(400).json({
+                                                            success: false,
+                                                            message: `Missing ${field.replace('_', ' ')} field`,
+                                                        });
+                                                    }
+                                                }
+                                                if(!userId)
+                                                {
+                                                  return res.status(400).json({
+                                                                 success : false ,
+                                                                 userValidationMessage : 'select user for send notification'
+                                                  })
+                                                }
+
+                                                // Get the user by userId
+                                                const user = await userModel.findOne({ _id : userId } );
+                                                        const userName = user.fullName
+                                                if (!user) {
+                                                    return res.status(404).json({
+                                                        success: false,
+                                                        message: 'User not found',
+                                                    });
+                                                }
+
+                                                // Prepare email content
+                                                const messageContent = `
+                                                    Dear ${user.fullName}, 
+                                                    *************************************************************** 
+                                                    ${title} 
+                                                    ---------
+                                                    ${message}
+                                                    ****************************************************************
+                                                `;
+
+                                                // Send email notification to the user
+                                                await notificationEmail(user.email, 'Notification', messageContent);
+
+                                                // Save a single record in UsersNotificationModel
+                                                const savedNotification = await UsersNotificationModel.create({
+                                                    userId: user._id,
+                                                    title,
+                                                    message,
+                                                    date: new Date(),
+                                                    userName : userName
+                                            
+                                                });
+
+                                                return res.status(200).json({
+                                                    success: true,
+                                                    message: 'Notification sent to user email',
+                                                    notification_details: savedNotification,
+                                                });
+                                            } catch (error) {
+                                                console.error(error);
+                                                return res.status(500).json({
+                                                    success: false,
+                                                    message: 'Server error',
+                                                });
+                                            }
+                                        };
+  // API to send notification to all user and particular one according to admin choice
+
+                                        const sendNotifications = async (req, res) => {
+                                            try {
+                                              const adminChoice = req.body.adminChoice;
+                                          
+                                              let notificationFunction;
+                                          
+                                              if (adminChoice === 1) {
+                                                notificationFunction = sendNotification_to_user;
+                                              } else if (adminChoice === 2) {
+                                                notificationFunction = sendNotification_to_allUser;
+                                              } else {
+                                                return res.status(400).json({
+                                                  success: false,
+                                                  message: 'Invalid admin choice. Please provide valid choice (1 or 2).',
+                                                });
+                                              }
+                                          
+                                              // Call the selected notification function
+                                              await notificationFunction(req, res);
+                                          
+                                              // Only send the success response if the notification function didn't send a response
+                                              if (!res.headersSent) {
+                                                return res.status(200).json({
+                                                  success: true,
+                                                  message: 'Notification sent',
+                                                });
+                                              }
+                                            } catch (error) {
+                                              console.error(error);
+                                              if (!res.headersSent) {
+                                                return res.status(500).json({
+                                                  success: false,
+                                                  message: 'Server error',
+                                                });
+                                              }
+                                            }
+                                          };
+        // API for get all notification details
+                                            const getAll_Users_Notificatation = async (req, res) => {
+                                                try {
+                                                const { title , userId} = req.query;
+                                                const filter = {};
+                                            
+                                                if (title) {
+                                                    filter.title = title;
+                                                }          
+                                                if(userId)
+                                                {
+                                                    filter.userId = userId
+                                                }
+                                            
+                                                const notifications = await UsersNotificationModel.find(filter);
+                                            
+                                                if (notifications.length === 0) {
+                                                    return res.status(400).json({
+                                                    success: false,
+                                                    message: 'No notifications for the user',
+                                                    });
+                                                }
+                                            
+                                                const allNotifications = notifications.map((notification) => ({
+                                                    ...notification.toObject(),
+                                                    send_to: notification.userId ? `${notification.userName}` : 'allUser',
+                                                }));
+                                            
+                                                const response = {
+                                                    success: true,
+                                                    message: 'User Notifications',
+                                                    notifications: allNotifications,
+                                                };
+                                            
+                                                return res.status(200).json(response);
+                                                } catch (error) {
+                                                    console.error(error);
+                                                return res.status(500).json({
+                                                    success: false,
+                                                    message: 'Server error',
+                                                });
+                                                }
+                                            };
+
+// // API for delete notification by Id
+                                        const deleteNotifcationById = async(req ,res)=>{
+                                            try {
+                                                const notificationId = req.params.notificationId
+                                                // check for notification
+                                            
+                                                const notification = await UsersNotificationModel.findByIdAndDelete({
+                                                                _id : notificationId
+                                                })
+                                                if(!notification)
+                                                {
+                                                return res.status(400).json({
+                                                                    success : false ,
+                                                                    message : 'no notifcation found with the given Id'
+                                                })
+                                                }
+                                                else
+                                                {
+                                                return res.status(200).json({
+                                                                    success : true ,
+                                                                    message : 'notification deleted successfully'
+                                                })
+                                                }
+                                                } catch (error) {
+                                            return res.status(500).json({
+                                                        success : false ,
+                                                        message : 'server error'
+                                            })
+                                            }
+                                        }
+
         module.exports = { login_Admin  , changePassword , forgetPassToken , reset_password ,
                                changeProfile ,create_DemoEvent, getCollectionGuests , getFeedbacksofEvent ,
                                 getAdmin , getDemoEvent , checkAndToggleStatus , deleteFeedback_OfEvent , termAndCondition ,
                                 getTermAndCondition , privacyAndPolicy , 
                                 getPrivacy_and_Policy , getAllFeedback , deleteFeedback , getAllUser ,
-                                checkAndToggleStatus_Of_User  
+                                checkAndToggleStatus_Of_User  , getAdminNotification , sendNotification_to_allUser,
+                                sendNotification_to_user , sendNotifications , getAll_Users_Notificatation , 
+                                deleteNotifcationById
                             }

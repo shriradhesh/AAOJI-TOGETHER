@@ -12,15 +12,17 @@ const path = require('path')
 const ExcelJs = require('exceljs')
 const FirebaseAdmin = require('../utils/firebaseService')
 
+const Admin = require('../models/AdminModel')
+
                                 /* API for users */
     // API for user signup
      
     const userSignUp = async (req, res) => {
       try {
-          const { fullName, phone_no } = req.body;
+          const { fullName, phone_no , email } = req.body;
   
           // Validation
-          const requiredFields = ['fullName', 'phone_no'];
+          const requiredFields = ['fullName', 'phone_no' , 'email'];
           for (const field of requiredFields) {
               if (!req.body[field]) {
                   return res.status(400).json({
@@ -46,6 +48,7 @@ const FirebaseAdmin = require('../utils/firebaseService')
               phone_no,
               profileImage: imagePath,
               user_status: userModel.schema.path('user_status').getDefault(),
+              email
           });
   
           const saveUser = await newUser.save();
@@ -60,10 +63,11 @@ const FirebaseAdmin = require('../utils/firebaseService')
                   profileImage: saveUser.profileImage,
                   userId: saveUser._id,
                   user_status: saveUser.user_status,
+                  email : saveUser.email
               },
           });
       } catch (error) {
-          console.error(error); // Log the error for debugging
+          console.error(error); 
           res.status(500).json({
               success: false,
               message: 'There is a server error',
@@ -163,6 +167,14 @@ const FirebaseAdmin = require('../utils/firebaseService')
           });
       
           const saveEvent = await newEvent.save();
+          const newAdminNotification = new AdminNotificationDetail({
+            userId  , 
+            userName : userName    ,                                    
+            message: `congratulation ..!! , new event : ${saveEvent._id} has been made by the user : ${userName}  `,
+            date: new Date(),    
+          
+          });
+          await newAdminNotification.save()
           res.status(200).json({
             success: true,
             message: 'Event created successfully',
@@ -918,39 +930,7 @@ const FirebaseAdmin = require('../utils/firebaseService')
                                   })
                                 }
                               }
-          // API for send Notification
-                                      const sendNotification = async () => {
-                                        try {
-                                          const users = await userModel.find();
-                                      
-                                          for (const user of users) {
-                                            const userId = user._id;
-                                            const eventsCreated = user.eventsCreated || [];
-                                      
-                                            // Fetch upcoming events for the user
-                                            const upcomingEvents = eventsCreated.filter(event => new Date(event.venue_Date_and_time.date) > new Date());
-                                      
-                                            // Send notification for upcoming events
-                                            await Promise.all(upcomingEvents.map(async (event) => {
-                                              const token = user.fcmToken;
-                                              const message = {
-                                                token: token,
-                                                notification: {
-                                                  title: 'Upcoming events',
-                                                  body: `Don't forget about the upcoming event: ${event.title}`
-                                                }
-                                              };
-                                      
-                                              await FirebaseAdmin.messaging().send(message);
-                                              console.log('Successfully sent message', event.title);
-                                            }));
-                                          }
-                                        } catch (error) {
-                                          console.error('Error sending notification', error);
-                                        }
-                                      };
-                                      
-                                      sendNotification();
+         
  // APi for get all events
                         
                 const getAllEvents = async (req, res) => {
@@ -1014,11 +994,12 @@ const FirebaseAdmin = require('../utils/firebaseService')
                     }
                   }
 
+      
 module.exports = {
                     userSignUp , userLogin , create_Event , newVenue_Date_Time , add_co_host ,
                      edit_Venue_Date_Time , delete_Venue_Date_Time , add_guest , import_Guest ,
                      getAllGuest  , addAllGuestsToBookmark , deleteGuestInCollection , searchEvent ,
                      getFilteredEvent , feedback , deleteEvent , deleteUser , getImages , delete_co_Host , getAllEvents,
-                     getUserEvent
+                     getUserEvent 
 
 }
