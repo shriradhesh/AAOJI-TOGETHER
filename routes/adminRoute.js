@@ -10,7 +10,7 @@ const nodemailer = require('nodemailer')
 // API for admin login
                 router.post('/login_Admin', adminController.login_Admin)
 // API for change Admin password
-                 router.post('/changePassword/:id', adminController.changePassword)
+               router.post('/changePassword/:id', adminController.changePassword)
 // Api for generate token for forgetpassword
                  router.post('/forgetPassToken', adminController.forgetPassToken)
 // Api for reset password using token

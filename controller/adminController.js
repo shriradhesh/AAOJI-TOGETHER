@@ -112,9 +112,10 @@ const login_Admin = async (req, res) => {
                                       {
                                         return res.status(400).json({
                                                            success : false ,
-                                                           message : 'old password not valid'
+                                                           OldPasswordValidMessage : 'old password not valid'
                                         })
                                       }
+
                                       // bcrypt the old password
                                       const hashedNewPassword = await bcrypt.hash(newPassword , 10)
                                       admin.password = hashedNewPassword
@@ -143,7 +144,7 @@ const login_Admin = async (req, res) => {
                                             if (!email || !isValidEmail(email)) {
                                                 return res.status(400).json({
                                                             success : false,
-                                                            message : "Valid email is required"
+                                                            validEmailmessage : "Valid email is required"
                                                 })
                                             }
 
@@ -151,7 +152,7 @@ const login_Admin = async (req, res) => {
 
                                             if(!admin)
                                             {
-                                                return res.status(404).json({ success: false, message : ' admin with given email not found'})
+                                                return res.status(404).json({ success: false, adminExistanceMessage : ' admin with given email not found'})
                                             }
                                                 
                                                 let token = await tokenModel.findOne({ adminId : admin._id })
@@ -165,13 +166,13 @@ const login_Admin = async (req, res) => {
                                                 const link = `${process.env.AdminForgetpassURL}`
                                                 await Adminforgetpass_sentEmail(admin.email, "Password reset", link)
 
-                                                res.status(200).json({success : true ,messsage  : "password reset link sent to your email account" , token : token})
+                                                res.status(200).json({success : true , successMessage  : "password reset link sent to your email account" , token : token})
                                                 
                                         }
                                         catch(error)
                                         {
                                                     console.error(error);
-                                            res.status(500).json({success : false , message : "An error occured" , error : error})
+                                            res.status(500).json({success : false , serverErrorMessage : "An error occured" , error : error})
                                         }
                                         function isValidEmail(email) {
                                             // email validation
@@ -192,14 +193,14 @@ const login_Admin = async (req, res) => {
                                             {
                                                 return res.status(400).json({
                                                                 success : false,
-                                                                message : 'password  is required'
+                                                                passwordMessage : 'password  is required'
                                                 })
                                             }
                                             if(!confirmPassword )
                                             {
                                                 return res.status(400).json({
                                                                 success : false,
-                                                                message : 'confirmPassword  is required'
+                                                                confirmPasswordMessage : 'confirmPassword  is required'
                                                 })
                                             }
 
@@ -207,7 +208,7 @@ const login_Admin = async (req, res) => {
                                             {
                                                 return res.status(400).json({
                                                                     success : false ,
-                                                                    message : 'password not matched'
+                                                                    passwordMatchMessage : 'password not matched'
                                                 })
                                             }
 
@@ -217,7 +218,7 @@ const login_Admin = async (req, res) => {
                                                 {
                                                     return res.status(400).json({
                                                                         success : false,
-                                                                        message : 'invalid token'
+                                                                        invalidTokenMessage : 'invalid token'
                                                     })
                                                 }
                                                     const admin = await Admin.findById(token.adminId)
@@ -226,7 +227,7 @@ const login_Admin = async (req, res) => {
                                                     {
                                                         return res.status(400).json({
                                                                     success : false,
-                                                                    message : 'invalid admin '
+                                                                    InvalidMessage : 'invalid admin '
                                                         })
                                                     }
                                                 const hashedPassword = await bcrypt.hash(password , 10)
@@ -237,13 +238,13 @@ const login_Admin = async (req, res) => {
                                                 
                                                 res.status(200).json({
                                                             success : true ,
-                                                            message : 'password reset successfully'
+                                                            successMessage : 'password reset successfully'
                                                 })
                                             
                                         } catch (error) {
                                             return res.status(500).json({
                                                         success : false,
-                                                        message : 'there is an server error'
+                                                        serverErrorMessage : 'there is an server error'
                                             })
                                         }
                                     }
@@ -378,7 +379,7 @@ const login_Admin = async (req, res) => {
                                                                     
                                                 
                                                         if (existingEvent) {
-                                                            return res.status(400).json({ message: ' venue with date and time already exist in venue location ', success: false });
+                                                            return res.status(400).json({ message: 'venue with date and time already exist in venue location ', success: false });
                                                         }
                                                     
                                                         // Process and store multiple image files
@@ -738,6 +739,7 @@ const login_Admin = async (req, res) => {
                                                               feedbackErrorMessage : 'there is no feedback'
                                             })
                                         }
+
                                         else
                                         {
                                             return res.status(200).json({
@@ -1038,7 +1040,7 @@ const login_Admin = async (req, res) => {
                                               } else {
                                                 return res.status(400).json({
                                                   success: false,
-                                                  message: 'Invalid admin choice. Please provide valid choice (1 or 2).',
+                                                  InvalidChoiceMessage: " Please select one option",
                                                 });
                                               }
                                           
@@ -1049,15 +1051,15 @@ const login_Admin = async (req, res) => {
                                               if (!res.headersSent) {
                                                 return res.status(200).json({
                                                   success: true,
-                                                  message: 'Notification sent',
+                                                  NotificationSentMessage: 'Notification sent',
                                                 });
                                               }
                                             } catch (error) {
-                                              console.error(error);
+                                             
                                               if (!res.headersSent) {
                                                 return res.status(500).json({
                                                   success: false,
-                                                  message: 'Server error',
+                                                  serverErrorMessage: 'Server error',
                                                 });
                                               }
                                             }
@@ -1095,7 +1097,7 @@ const login_Admin = async (req, res) => {
                                                     message: 'User Notifications',
                                                     notifications: allNotifications,
                                                 };
-                                            
+                                                const sortedNotifications = allNotifications.sort((a, b) => b.createdAt - a.createdAt);
                                                 return res.status(200).json(response);
                                                 } catch (error) {
                                                     console.error(error);
@@ -1106,7 +1108,7 @@ const login_Admin = async (req, res) => {
                                                 }
                                             };
 
-// // API for delete notification by Id
+// API for delete notification by Id
                                         const deleteNotifcationById = async(req ,res)=>{
                                             try {
                                                 const notificationId = req.params.notificationId
@@ -1136,6 +1138,13 @@ const login_Admin = async (req, res) => {
                                             })
                                             }
                                         }
+
+
+
+
+
+
+
 
         module.exports = { login_Admin  , changePassword , forgetPassToken , reset_password ,
                                changeProfile ,create_DemoEvent, getCollectionGuests , getFeedbacksofEvent ,

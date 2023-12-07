@@ -455,13 +455,15 @@ const Admin = require('../models/AdminModel')
                                   if (!event) {
                                       return res.status(400).json({ success: false, message: `Event not found with the eventId ${eventId}` });
                                   }
-                                            // check for duplicate guest
-                                 
-                                  const duplicateGuest =  event.Guests.find((guest) => guest.phone_no === phone_no);
-
-                                  if (duplicateGuest) {
-                                      return res.status(400).json({ success: false, message: `Guest with phone number '${phone_no}' already exists in the event` });
-                                  }
+                                          // check for guest
+                                  const guestExist = event.Guests.find((guest) => guest.phone_no === phone_no)
+                                  if(!guestExist)
+                                  {
+                                    return res.status(400).json({ 
+                                                      success : false ,
+                                                      guestExistMessage : 'guest already exist with the same phone_no'
+                                    })
+                                  }                                      
 
                                   // Add the new guest to the Guests array
                                   event.Guests.push({
