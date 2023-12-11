@@ -18,6 +18,7 @@ const userModel = require('../models/userModel')
 const AdminNotificationDetail = require ('../models/AdminNotification')
 const UsersNotificationModel = require('../models/userNotifications')
 const notificationEmail = require('../utils/AdminSendEmails')
+const contactUs = require('../models/contactUs')
 
 
                                              /* API's  */
@@ -1139,9 +1140,61 @@ const login_Admin = async (req, res) => {
                                             }
                                         }
 
+// API for get contact Us details 
+                                    const getContactUs_Details = async (req ,res)=>{
+                                        try {
+                                              // check for contect us page details existance
+                                      const getContactUs_Detail = await contactUs.find({ })
+                                      if(!getContactUs_Detail)
+                                      {
+                                        return res.status(400).json({
+                                                         success : false ,
+                                                         contactUsErrorMessage : 'no contatc Data found'
+                                        })
+                                      }
+                                      else
+                                      {
+                                        return res.status(200).json({
+                                                         success : true ,
+                                                         successMessage : 'contact us Page details',
+                                                         ContactUsPage_Detail : getContactUs_Detail
+                                        })
+                                      }
+                                        } catch (error) {
+                                            return res.status(500).json({
+                                                                 success : false ,
+                                                                 serverErrorMessage : 'server Error'
+                                            })
+                                        }
+                                    }
 
-
-
+        // Api for delete contact us details by id
+                                     const deleteContactDetails = async (req , res)=>{
+                                        try {
+                                               const contactDetailId = req.params.contactDetailId
+                                        // check and delete contact details
+                                        const contactDetail = await contactUs.findOneAndDelete({ _id : contactDetailId})
+                                            if(!contactDetail)
+                                            {
+                                                return res.status(400).json({
+                                                                success : false ,
+                                                                contactUsErrorMessage : 'no contact details found'
+                                                })
+                                            }
+                                            else
+                                            {
+                                                return res.status(200).json({
+                                                                     success : true ,
+                                                                     successMessage : 'contact detail deleted successfully ..!'
+                                                })
+                                            }
+                                        } catch (error) {
+                                            return res.status(500).json({
+                                                            success : false , 
+                                                            successMessage : 'server Error'
+                                            })
+                                        }
+                                     }
 
 
 
@@ -1153,5 +1206,5 @@ const login_Admin = async (req, res) => {
                                 getPrivacy_and_Policy , getAllFeedback , deleteFeedback , getAllUser ,
                                 checkAndToggleStatus_Of_User  , getAdminNotification , sendNotification_to_allUser,
                                 sendNotification_to_user , sendNotifications , getAll_Users_Notificatation , 
-                                deleteNotifcationById
+                                deleteNotifcationById , getContactUs_Details , deleteContactDetails
                             }

@@ -50,6 +50,9 @@ const userController = require('../controller/userController')
                              router.get('/getAllEvents', userController.getAllEvents)
     // API for get user Event
                         router.get('/getUserEvent/:userId', userController.getUserEvent)
+    // API for contact us 
+                        router.post('/contactUsPage', userController.contactUsPage)
+   
     
 
 module.exports = router

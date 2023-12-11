@@ -26,7 +26,7 @@ const eventSchema = new Schema({
   },
   event_Type: {
     type: String,
-    enum: ['Business_Conference', 'Music_Festivals', 'Birthday', 'Exhibitions', 'Wedding_Anniversary', 'sports', 'marriage' , 'Demo'],
+    enum: ['Business_Conference', 'Music_Festivals', 'Birthday', 'Exhibitions', 'Wedding_Anniversary', 'sports', 'marriage' ,'Demo' , 'Marriage'],
     required: true
   },
   co_hosts: [

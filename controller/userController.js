@@ -2,7 +2,7 @@ const userModel = require('../models/userModel')
 const eventModel = require('../models/eventModel')
 const bookmarkModel = require('../models/bookmarkModel')
 const feedbackModel = require('../models/feedbackModel')
-
+const AdminNotificationDetail = require('../models/AdminNotification')
 const cors = require('cors')
 const upload = require('../utils/uploads')
 const fs = require('fs')
@@ -11,6 +11,7 @@ const jwt = require('jsonwebtoken')
 const path = require('path')
 const ExcelJs = require('exceljs')
 const FirebaseAdmin = require('../utils/firebaseService')
+const contactUs = require('../models/contactUs')
 
 const Admin = require('../models/AdminModel')
 
@@ -170,18 +171,18 @@ const Admin = require('../models/AdminModel')
           const newAdminNotification = new AdminNotificationDetail({
             userId  , 
             userName : userName    ,                                    
-            message: `congratulation ..!! , new event : ${saveEvent._id} has been made by the user : ${userName}  `,
+            message: `congratulation ..!! , new event : ${saveEvent.title} has been made by the user : ${userName} `,
             date: new Date(),    
           
           });
           await newAdminNotification.save()
           res.status(200).json({
             success: true,
-            message: 'Event created successfully',
+            message: 'new Event created successfully',
             event_details: saveEvent
           });
         } catch (error) {
-            console.error(error);
+           console.error(error); 
           return res.status(500).json({
             success: false,
             message: 'There is a server error'
@@ -246,48 +247,59 @@ const Admin = require('../models/AdminModel')
            }
 
 // add co host
-                    const add_co_host = async (req,res)=>{
-                        const eventId = req.params.eventId
-                        const {co_host_Name , phone_no} = req.body  
-                                try {
-                         const requiredFields = [                
-                                'co_host_Name', 
-                                'phone_no',                                                                       
-                              ];
-  
-                            for (const field of requiredFields) {
-                                if (!req.body[field]) {
-                                    return res.status(400).json({ message: `Missing ${field.replace('_', ' ')} field`, success: false });
-                                }
-                            }
+                                const add_co_host = async (req, res) => {
+                                  const eventId = req.params.eventId;
+                                  const { co_host_Name, phone_no } = req.body;
+                                  try {
+                                      const requiredFields = ['co_host_Name', 'phone_no'];
 
-                            // check for phone_no 
-                        const existPhoneNumber = await eventModel.findOne({ phone_no })
-                        if(existPhoneNumber)
-                        {
-                          return res.status(400).json({ message : `co host with the phone number :  ${phone_no} is already exist `})
-                        }
+                                      for (const field of requiredFields) {
+                                          if (!req.body[field]) {
+                                              return res.status(400).json({
+                                                  message: `Missing ${field.replace('_', ' ')} field`,
+                                                  success: false
+                                              });
+                                          }
+                                      }
 
-                          const event = await eventModel.findOne({ _id:eventId })                          
-                        if(!event)
-                        {
-                            return res.status(400).json({ success : false , message : `event not found with the eventId ${eventId}`})
-                        }
-                        event.co_hosts.push({
-                            co_host_Name, 
-                            phone_no                          
-                   })
-                      await event.save()
-                      return res.status(200).json({ 
-                                success : true , 
-                                message : `co-host added successfully in eventId : ${eventId}`})
-                    } catch (error) {
-                        return res.status(500).json({
-                            success : false ,
-                            message : 'there is an server error'
-                        })
-                    }
-        }
+                                      // check for event
+                                      const event = await eventModel.findOne({ _id: eventId });
+                                      if (!event) {
+                                          return res.status(400).json({
+                                              success: false,
+                                              eventExistanceMessage: 'Event not found with the given eventId'
+                                          });
+                                      }
+
+                                      // Check if the phone number already exists among co-hosts
+                                      const existPhoneNumber = event.co_hosts.find((cohost) => cohost.phone_no === phone_no);
+                                      if (existPhoneNumber) {
+                                          return res.status(400).json({
+                                              message: `Co-host with the phone number ${phone_no} already exists`,
+                                              success: false
+                                          });
+                                      }
+
+                                      // Add co-host to the event
+                                      event.co_hosts.push({
+                                          co_host_Name,
+                                          phone_no
+                                      });
+
+                                      await event.save();
+                                      return res.status(200).json({
+                                          success: true,
+                                          message: `Co-host added successfully in eventId: ${eventId}`
+                                      });
+                                  } catch (error) {
+                                      console.error(error);
+                                      return res.status(500).json({
+                                          success: false,
+                                          message: 'There is a server error'
+                                      });
+                                  }
+                                };
+
 // API for delete co-host in event
                              const delete_co_Host = async (req , res)=>{
                               
@@ -381,6 +393,7 @@ const Admin = require('../models/AdminModel')
                               })
                           
                                   } catch (error) {
+                                    
                                       return res.status(500).json({
                                           success : false ,
                                           message : 'there is an server error'
@@ -430,7 +443,7 @@ const Admin = require('../models/AdminModel')
                                   } catch (error) {
                                       return res.status(500).json({
                                           success : false,
-                                          message : ' there is an server error'
+                                          message : 'there is a server error'
                                       })
                                   }
                               }
@@ -448,23 +461,25 @@ const Admin = require('../models/AdminModel')
                                           return res.status(400).json({ message: `Missing ${field.replace('_', ' ')} field`, success: false });
                                       }
                                   }
-                                          // check for event
 
+                                  // Check for event
                                   const event = await eventModel.findOne({ _id: eventId });
 
                                   if (!event) {
                                       return res.status(400).json({ success: false, message: `Event not found with the eventId ${eventId}` });
                                   }
-                                          // check for guest
-                                  const guestExist = event.Guests.find((guest) => guest.phone_no === phone_no)
-                                  if(!guestExist)
-                                  {
-                                    return res.status(400).json({ 
-                                                      success : false ,
-                                                      guestExistMessage : 'guest already exist with the same phone_no'
-                                    })
-                                  }                                      
 
+                                  // Check if guest already exists with the same phone_no
+                                  const guestExist = event.Guests.find((guest) => guest.phone_no === phone_no);
+
+                                  if (guestExist) {
+                                      return res.status(400).json({
+                                          success: false,
+                                          guestExistMessage: 'Guest already exists with the same phone_no',
+                                      });
+                                  }
+                                    else
+                                    {
                                   // Add the new guest to the Guests array
                                   event.Guests.push({
                                       Guest_Name,
@@ -478,6 +493,7 @@ const Admin = require('../models/AdminModel')
                                       success: true,
                                       message: `Guest added successfully in eventId: ${eventId}`,
                                   });
+                                }
                               } catch (error) {
                                   console.error(error);
                                   return res.status(500).json({
@@ -486,6 +502,7 @@ const Admin = require('../models/AdminModel')
                                   });
                               }
                             };
+
 
 
       // API for import guest from excel
@@ -691,7 +708,7 @@ const Admin = require('../models/AdminModel')
                                        const event_Type = req.body.event_Type                                     
 
                                        // check for event existnace
-                                       const event = await eventModel.findOne({ event_Type : event_Type })
+                                       const event = await eventModel.find({ event_Type : event_Type })
                                        if(!event)
                                        {
                                         return res.status(400).json({
@@ -726,8 +743,7 @@ const Admin = require('../models/AdminModel')
                                               venue_location,
                                               event_Type,
                                               title,
-                                              year,
-                                              month,
+                                              
                                             } = req.query;
                                         
                                             const filter = {};
@@ -753,18 +769,14 @@ const Admin = require('../models/AdminModel')
                                                       filter['venue_Date_and_time.venue_location'] = venue_location
                                                     }
 
-                                            if (date) {
-                                              filter['venue_Date_and_time.date'] = new Date(date);
-                                            } else if (year && month) {
-                                              // If year and month are provided, filter by year and month
-                                              const startDate = new Date(`${year}-${month}-01`);
-                                              const endDate = new Date(`${year}-${parseInt(month) + 1}-01`);
-                                              filter['venue_Date_and_time.date'] = {
-                                                $gte: startDate,
-                                                $lt: endDate,
-                                              };
-                                            }
+                                                     if (date) {
+                                                    filter['venue_Date_and_time.date'] = date
+                                                    } 
+                                                       
                                                     
+
+
+
                                             const events = await eventModel.find(filter);
                                         
                                             return res.status(200).json({
@@ -996,12 +1008,55 @@ const Admin = require('../models/AdminModel')
                     }
                   }
 
+                              /*  Contact Us */
+  // API for contact us
+                    const contactUsPage = async(req , res) =>{
+                      try {
+                            const {userName , user_Email , user_phone , message } = req.body
+                          
+                            const requiredFields = ['userName', 'user_Email' , 'user_phone' , 'message'];
+                            for (const field of requiredFields)
+                             {
+                                if (!req.body[field])
+                                 {
+                                    return res.status(400).json({
+                                        success: false,
+                                        message: `Missing ${field.replace('_', ' ')} field`,
+                                    });
+                                 }
+
+                            }
+                            const newData = new contactUs({
+                              userName,
+                              user_Email,
+                              user_phone,
+                              message,
+                            
+                             
+
+                          });
+                               await newData.save()
+                            return res.status(200).json({
+                                              success : true ,
+                                              successMessage :'contact Us Data',
+                                              contactUs_Data : newData
+                            })
+                      } catch (error) {
+                        console.error(error);
+                        return res.status(500).json({
+                                     success : false ,
+                                     serverErrorMessage : 'server Error'
+                        })
+                      }
+                    }
+
+                  
       
 module.exports = {
                     userSignUp , userLogin , create_Event , newVenue_Date_Time , add_co_host ,
                      edit_Venue_Date_Time , delete_Venue_Date_Time , add_guest , import_Guest ,
                      getAllGuest  , addAllGuestsToBookmark , deleteGuestInCollection , searchEvent ,
                      getFilteredEvent , feedback , deleteEvent , deleteUser , getImages , delete_co_Host , getAllEvents,
-                     getUserEvent 
+                     getUserEvent   , contactUsPage
 
 }

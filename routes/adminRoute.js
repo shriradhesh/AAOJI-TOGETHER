@@ -59,6 +59,8 @@ const nodemailer = require('nodemailer')
                  router.get('/getAll_Users_Notificatation', adminController.getAll_Users_Notificatation)
 // APi to delete notification 
                  router.delete('/deleteNotifcationById/:notificationId' , adminController.deleteNotifcationById)
-            
-
+// API for get getContactUs_Details 
+                 router.get('/getContactUs_Details', adminController.getContactUs_Details)
+// API for delete particular contact details 
+                  router.delete('/deleteContactDetails/:contactDetailId' , adminController.deleteContactDetails)
 module.exports = router
