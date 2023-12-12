@@ -7,6 +7,8 @@ const nodemailer = require('nodemailer')
 
                                   /* API's */
 
+                                    /* ADMIN  */
+
 // API for admin login
                 router.post('/login_Admin', adminController.login_Admin)
 // API for change Admin password
@@ -17,36 +19,48 @@ const nodemailer = require('nodemailer')
                  router.post('/reset_password/:tokenValue', adminController.reset_password)
 // API for change ProfileImage also update
                  router.post('/changeProfile/:AdminId',upload.single('profileImage'), adminController.changeProfile)
+// API for get admin details
+                router.get('/getAdmin/:adminId' , adminController.getAdmin)
+
+                                 /*  EVENT  */
 // API for create Demo event
                   router.post('/create_DemoEvent/:adminId',upload.array('images', 10), adminController.create_DemoEvent)
 // API for get all Guests of a collection in Bookmark model
                   router.get('/getCollectionGuests', adminController.getCollectionGuests)
+// API for get demo Event 
+                  router.get('/getDemoEvent', adminController.getDemoEvent)
+// APi for checkAndToggleStatus of event
+router.post('/checkAndToggleStatus/:eventId', adminController.checkAndToggleStatus)
+                   
+                                         /* FEEDBACK */
 // API for get all feedbacks of a event
                   router.get('/getFeedbacksofEvent/:eventId', adminController.getFeedbacksofEvent)
-// API for get admin details
-                  router.get('/getAdmin/:adminId' , adminController.getAdmin)
-// API for get demo Event 
-                 router.get('/getDemoEvent', adminController.getDemoEvent)
-// APi for checkAndToggleStatus of event
-                router.post('/checkAndToggleStatus/:eventId', adminController.checkAndToggleStatus)
 // API for delete feedback of event
                  router.delete('/deleteFeedback_OfEvent/:eventId/:feedbackId', adminController.deleteFeedback_OfEvent)
+// APi for get all feedback
+                router.get('/getAllFeedback', adminController.getAllFeedback)
+// API for delete particular feedback by feedbackId
+                router.delete('/deleteFeedback/:feedbackId', adminController.deleteFeedback) ,
+
+                                        /* TERM & Condition  */
 // API for create and Update term and condition
                  router.post('/termAndCondition' , adminController.termAndCondition)
 // API for get TermAndCondition
                  router.get('/getTermAndCondition', adminController.getTermAndCondition)
+
+                                     /*   Privacy POLICY */
 // API for create and update privacy and policy
                   router.post('/privacyAndPolicy', adminController.privacyAndPolicy)
 // API for get Privacy_and_Policy
                   router.get('/getPrivacy_and_Policy', adminController.getPrivacy_and_Policy)
-// APi for get all feedback
-                  router.get('/getAllFeedback', adminController.getAllFeedback)
-// API for delete particular feedback by feedbackId
-                  router.delete('/deleteFeedback/:feedbackId', adminController.deleteFeedback) ,
+
+                                   /* USER   */
 // API for get all users
                  router.get('/getAllUser', adminController.getAllUser)
 // API for toggle and change user status
                  router.post('/checkAndToggleStatus_Of_User/:userId' , adminController.checkAndToggleStatus_Of_User )
+
+                                  /* Notifications */
 // API for get adminNotification
                  router.get('/getAdminNotification/:adminId' , adminController.getAdminNotification)
 // APi to send notification to all user
@@ -59,8 +73,15 @@ const nodemailer = require('nodemailer')
                  router.get('/getAll_Users_Notificatation', adminController.getAll_Users_Notificatation)
 // APi to delete notification 
                  router.delete('/deleteNotifcationById/:notificationId' , adminController.deleteNotifcationById)
+
+                                  /* Contact Us */
 // API for get getContactUs_Details 
                  router.get('/getContactUs_Details', adminController.getContactUs_Details)
 // API for delete particular contact details 
                   router.delete('/deleteContactDetails/:contactDetailId' , adminController.deleteContactDetails)
+
+                                   /* FAQ  */
+// API for  get FAQ Details of USER
+                  router.get('/getFAQ', adminController.getFAQ)
+
 module.exports = router

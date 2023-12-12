@@ -19,6 +19,7 @@ const AdminNotificationDetail = require ('../models/AdminNotification')
 const UsersNotificationModel = require('../models/userNotifications')
 const notificationEmail = require('../utils/AdminSendEmails')
 const contactUs = require('../models/contactUs')
+const faqModel = require('../models/FaQ')
 
 
                                              /* API's  */
@@ -789,15 +790,16 @@ const login_Admin = async (req, res) => {
         // API for get all user
                                 const getAllUser = async (req ,res)=>{
                                     try {
-                                            // check for users
+                                            // check for users existance
                                     const users = await userModel.find({})
                                     if(!users)
                                     {
                                             return res.status(400).json({
-                                                      success : false ,
+                                                        success : false ,
                                                        userExistanceMessage : 'no Users found'
                                             })
-                                    }else
+                                    }
+                                    else
                                     {
                                         return res.status(200).json({
                                                                  success : true ,
@@ -1065,7 +1067,7 @@ const login_Admin = async (req, res) => {
                                               }
                                             }
                                           };
-        // API for get all notification details
+// API for get all notification details
                                             const getAll_Users_Notificatation = async (req, res) => {
                                                 try {
                                                 const { title , userId} = req.query;
@@ -1149,7 +1151,7 @@ const login_Admin = async (req, res) => {
                                       {
                                         return res.status(400).json({
                                                          success : false ,
-                                                         contactUsErrorMessage : 'no contatc Data found'
+                                                         contactUsErrorMessage : 'no contact Data found'
                                         })
                                       }
                                       else
@@ -1168,7 +1170,7 @@ const login_Admin = async (req, res) => {
                                         }
                                     }
 
-        // Api for delete contact us details by id
+// Api for delete contact us details by id
                                      const deleteContactDetails = async (req , res)=>{
                                         try {
                                                const contactDetailId = req.params.contactDetailId
@@ -1196,7 +1198,34 @@ const login_Admin = async (req, res) => {
                                         }
                                      }
 
-
+// API for get FAQ Details of users
+                                   const getFAQ = async(req ,res)=>{
+                                    try {
+                                        // check for FAQ Details existance
+                                    const getFAQ_Details = await faqModel.find({ })
+                                    if(!getFAQ_Details)
+                                    {
+                                        return res.status(400).json({
+                                                          success : false ,
+                                                          ExistanceMessage : 'no FAQ Details found'
+                                        })
+                                    }
+                                    else
+                                    {
+                                        return res.status(200).json({
+                                                          success : true ,
+                                                          successMessage : 'USER FAQ DETAILS' ,
+                                                          FAQ_Details : getFAQ_Details
+                                        })
+                                    }
+                                    } catch (error) {
+                                        return res.status(500).json({
+                                                        success : false ,
+                                                        serverError : 'server error'
+                                        })
+                                    }
+                                   }
+                        
 
 
         module.exports = { login_Admin  , changePassword , forgetPassToken , reset_password ,
@@ -1206,5 +1235,5 @@ const login_Admin = async (req, res) => {
                                 getPrivacy_and_Policy , getAllFeedback , deleteFeedback , getAllUser ,
                                 checkAndToggleStatus_Of_User  , getAdminNotification , sendNotification_to_allUser,
                                 sendNotification_to_user , sendNotifications , getAll_Users_Notificatation , 
-                                deleteNotifcationById , getContactUs_Details , deleteContactDetails
+                                deleteNotifcationById , getContactUs_Details , deleteContactDetails , getFAQ
                             }

@@ -14,6 +14,7 @@ const FirebaseAdmin = require('../utils/firebaseService')
 const contactUs = require('../models/contactUs')
 
 const Admin = require('../models/AdminModel')
+const faqModel = require('../models/FaQ')
 
                                 /* API for users */
     // API for user signup
@@ -1024,16 +1025,13 @@ const Admin = require('../models/AdminModel')
                                         message: `Missing ${field.replace('_', ' ')} field`,
                                     });
                                  }
-
                             }
                             const newData = new contactUs({
                               userName,
                               user_Email,
                               user_phone,
-                              message,
-                            
+                              message,                        
                              
-
                           });
                                await newData.save()
                             return res.status(200).json({
@@ -1050,6 +1048,43 @@ const Admin = require('../models/AdminModel')
                       }
                     }
 
+        // API for FAQ 
+                      const faqPage = async(req ,res)=>{
+                        try {
+                               const { userName , user_Email , user_phone , subject , message } = req.body
+                               const requiredFields = ['userName', 'user_Email' , 'user_phone' , 'subject', 'message'];
+                               for (const field of requiredFields)
+                                {
+                                   if (!req.body[field])
+                                    {
+                                       return res.status(400).json({
+                                           success: false,
+                                           message: `Missing ${field.replace('_', ' ')} field`,
+                                       });
+                                    }
+                               }
+                               
+                            const newFaqData = new faqModel({
+                              userName,
+                              user_Email,
+                              user_phone,
+                              subject,
+                              message
+                            })
+                            await newFaqData.save()
+
+                            return res.status(200).json({
+                                              success : true ,
+                                              successMessage : 'new Faq data inserted successfully ...!' ,
+                                              faq_Details : newFaqData
+                            })
+                        } catch (error) {
+                          return res.status(500).json({
+                                          success : false ,
+                                          serverErrorMessage : 'server Error'
+                          })
+                        }
+                      }         
                   
       
 module.exports = {
@@ -1057,6 +1092,6 @@ module.exports = {
                      edit_Venue_Date_Time , delete_Venue_Date_Time , add_guest , import_Guest ,
                      getAllGuest  , addAllGuestsToBookmark , deleteGuestInCollection , searchEvent ,
                      getFilteredEvent , feedback , deleteEvent , deleteUser , getImages , delete_co_Host , getAllEvents,
-                     getUserEvent   , contactUsPage
+                     getUserEvent   , contactUsPage , faqPage
 
 }

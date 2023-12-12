@@ -9,6 +9,8 @@ const userController = require('../controller/userController')
                     router.post('/userSignUp',upload.single('profileImage'), userController.userSignUp)
     // API for user Login
                     router.post('/userLogin', userController.userLogin)
+    // API for delete user
+                    router.delete('/deleteUser/:userId', userController.deleteUser)
 
                                   /* Event management */
 
@@ -38,20 +40,27 @@ const userController = require('../controller/userController')
                         router.get('/getFilteredEvent', userController.getFilteredEvent)
     // API for delete event using eventId
                         router.delete('/deleteEvent/:eventId', userController.deleteEvent)
-   // API for feedback form
-                        router.post('/feedback/:userId/:eventId', userController.feedback)
-    // API for delete user
-                        router.delete('/deleteUser/:userId', userController.deleteUser)
     // API for get Images of event
                         router.get('/getImages/:eventId', userController.getImages)
     // API for delete co-host in event
                         router.delete('/delete_co_Host/:co_hostId/:eventId', userController.delete_co_Host)
     // API for getAll Events 
-                             router.get('/getAllEvents', userController.getAllEvents)
+                        router.get('/getAllEvents', userController.getAllEvents)
     // API for get user Event
                         router.get('/getUserEvent/:userId', userController.getUserEvent)
+
+                                      /* Feedback  */
+   // API for feedback form
+                        router.post('/feedback/:userId/:eventId', userController.feedback)
+
+                                    /* Contact Us */
+    
     // API for contact us 
                         router.post('/contactUsPage', userController.contactUsPage)
+
+                                /* FAQ Page  */
+    // API for FAQ page
+                        router.post('/faqPage', userController.faqPage)
    
     
 
