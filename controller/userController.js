@@ -10,11 +10,19 @@ const multer = require('multer')
 const jwt = require('jsonwebtoken')
 const path = require('path')
 const ExcelJs = require('exceljs')
-const FirebaseAdmin = require('../utils/firebaseService')
+
 const contactUs = require('../models/contactUs')
+const InvitedeventModel = require('../models/Invitation')
 
 const Admin = require('../models/AdminModel')
 const faqModel = require('../models/FaQ')
+
+
+const twilio = require('twilio');
+
+const accountSid = 'AC126e34876c0bcb57eca92293dedfbc93';
+const authToken = '45a257477425131532341d7c50154269';
+const twilioPhoneNumber = '+17078202575'; 
 
                                 /* API for users */
     // API for user signup
@@ -114,7 +122,9 @@ const faqModel = require('../models/FaQ')
     const create_Event = async (req, res) => {
         try {
           const userId = req.params.userId
-          const { title, description, event_Type, venue_Date_and_time  } = req.body;
+          const { title, description, event_Type, venue_Date_and_time , Guests , co_hosts
+
+          } = req.body;
       
           const requiredFields = ['title', 'description', 'event_Type', 'venue_Date_and_time'];
           for (const field of requiredFields) {
@@ -159,6 +169,22 @@ const faqModel = require('../models/FaQ')
                 date: venue_Date_and_time.date,
                 start_time: venue_Date_and_time.start_time,
                 end_time: venue_Date_and_time.end_time
+              }
+            ],
+            Guests: [
+              {
+                
+                Guest_Name: Guests.Guest_Name,                
+                phone_no: Guests.phone_no,
+                 status : 0
+              }
+            ],
+            co_hosts: [
+              {              
+                
+                co_host_Name: co_hosts.co_host_Name,                
+                phone_no: co_hosts.phone_no,
+                
               }
             ],
             images: imagePaths,
@@ -604,62 +630,86 @@ const faqModel = require('../models/FaQ')
                                                               
                           
   // API to add all guest as favourite in bookmark 
-                          const addAllGuestsToBookmark = async (req, res) => {
-                            try {
-                              const eventId = req.params.eventId;
-                              const collectionName = req.body.collectionName
-                          
-                              // Check event existence
-                              const event = await eventModel.findOne({ _id: eventId });
-                              if (!event) {
-                                return res.status(400).json({
-                                  success: false,
-                                  message: 'No event found',
-                                });
-                              }
-                          
-                              // Get all unique guests in the event
-                              const uniqueGuests = Array.from(
-                                new Set(event.Guests.map((guest) => guest._id.toString()))
-                              ).map((guestId) =>
-                                event.Guests.find((guest) => guest._id.toString() === guestId)
-                              );
-                          
-                              // Iterate through all unique guests in the event and add to bookmark
-                              for (const guest of uniqueGuests) {
-                                // Check if the guest is already in the bookmark
-                                const existingBookmark = await bookmarkModel.findOne({
-                                  Guest_Name: guest.Guest_Name,
-                                  phone_no: guest.phone_no,
-                                  collectionName : collectionName
-                                });
-                          
-                                // If not in the bookmark, add to bookmark with status code 1
-                                if (!existingBookmark) {
-                                  const bookMarkEntry = new bookmarkModel({
-                                    Guest_Name: guest.Guest_Name,
-                                    phone_no: guest.phone_no,
-                                    status: 1,
-                                    collectionName : collectionName
-                                  });
-                          
-                                  // Save the bookmark entry
-                                  await bookMarkEntry.save();
-                                }
-                              }
-                          
-                              res.status(200).json({
-                                success: true,
-                                message: 'All guests added to bookmark as favorites',
-                              });
-                            } catch (error) {
-                              console.error(error);
-                              return res.status(500).json({
-                                success: false,
-                                message: 'There is a server error',
-                              });
-                            }
-                          };
+                                  const addAllGuestsToBookmark = async (req, res) => {
+                                    try {
+                                      const eventId = req.params.eventId;
+                                      const collectionName = req.body.collectionName;
+                                  
+                                      // Validate collectionName as a required field
+                                      if (!collectionName) {
+                                        return res.status(400).json({
+                                          success: false,
+                                          message: 'collectionName is a required field',
+                                        });
+                                      }
+                                  
+                                      // Check if collectionName already exists in bookmark table
+                                      const existingCollection = await bookmarkModel.findOne({
+                                        collectionName: collectionName,
+                                      });
+                                  
+                                      if (!existingCollection) {
+                                        // If collectionName does not exist in bookmark table, create a new collection
+                                        const newCollection = new bookmarkModel({
+                                          collectionName: collectionName,
+                                        });
+                                  
+                                        // Save the new collection entry
+                                        await newCollection.save();
+                                      }
+                                  
+                                      // Check event existence
+                                      const event = await eventModel.findOne({ _id: eventId });
+                                      if (!event) {
+                                        return res.status(400).json({
+                                          success: false,
+                                          message: 'No event found',
+                                        });
+                                      }
+                                  
+                                      // Get all unique guests in the event
+                                      const uniqueGuests = Array.from(
+                                        new Set(event.Guests.map((guest) => guest._id.toString()))
+                                      ).map((guestId) =>
+                                        event.Guests.find((guest) => guest._id.toString() === guestId)
+                                      );
+                                  
+                                      // Iterate through all unique guests in the event and add to bookmark
+                                      for (const guest of uniqueGuests) {
+                                        // Check if the guest is already in the bookmark
+                                        const existingBookmark = await bookmarkModel.findOne({
+                                          Guest_Name: guest.Guest_Name,
+                                          phone_no: guest.phone_no,
+                                          collectionName: collectionName,
+                                        });
+                                  
+                                        // If not in the bookmark, add to bookmark with status code 1
+                                        if (!existingBookmark) {
+                                          const bookMarkEntry = new bookmarkModel({
+                                            Guest_Name: guest.Guest_Name,
+                                            phone_no: guest.phone_no,
+                                            status: 1,
+                                            collectionName: collectionName,
+                                          });
+                                  
+                                          // Save the bookmark entry
+                                          await bookMarkEntry.save();
+                                        }
+                                      }
+                                  
+                                      res.status(200).json({
+                                        success: true,
+                                        message: 'All guests added to bookmark as favorites',
+                                      });
+                                    } catch (error) {
+                                      console.error(error);
+                                      return res.status(500).json({
+                                        success: false,
+                                        message: 'There is a server error',
+                                      });
+                                    }
+                                  };
+  
                           
           // delete a particular guest in a collection in bookMark model
                          const deleteGuestInCollection = async (req ,res)=> {
@@ -1051,8 +1101,8 @@ const faqModel = require('../models/FaQ')
         // API for FAQ 
                       const faqPage = async(req ,res)=>{
                         try {
-                               const { userName , user_Email , user_phone , subject , message } = req.body
-                               const requiredFields = ['userName', 'user_Email' , 'user_phone' , 'subject', 'message'];
+                               const { userName , user_Email , user_phone  , message } = req.body
+                               const requiredFields = ['userName', 'user_Email' , 'user_phone' ,  'message'];
                                for (const field of requiredFields)
                                 {
                                    if (!req.body[field])
@@ -1067,8 +1117,7 @@ const faqModel = require('../models/FaQ')
                             const newFaqData = new faqModel({
                               userName,
                               user_Email,
-                              user_phone,
-                              subject,
+                              user_phone,                             
                               message
                             })
                             await newFaqData.save()
@@ -1085,13 +1134,233 @@ const faqModel = require('../models/FaQ')
                           })
                         }
                       }         
-                  
+  
+                      const sendInvitation = async (req, res) => {
+                        try {
+                          const { eventId } = req.params;
+                      
+                          // Find event
+                          const event = await eventModel.findOne({ _id: eventId }).populate('Guests');
+                          if (!event) {
+                            return res.status(400).json({
+                              success: false,
+                              eventExistanceMessage: 'Event not found',
+                            });
+                          }
+                      
+                          // Create invitations object
+                          const invitation = {
+                            hostId: event.userId,
+                            eventId : eventId,
+                            hostName: event.userName,                        
+                            event_title: event.title,
+                            event_description: event.description,
+                            event_Type: event.event_Type,
+                            co_hosts: event.co_hosts,
+                            Guests: event.Guests,
+                            images: event.images,
+                            event_status: event.event_status,
+                            venue_Date_and_time: event.venue_Date_and_time,
+                            event_status :  InvitedeventModel.schema.path('event_status').getDefault(),     
+                         
+                          };
+                      
+                          // Save invitation to the database
+                          await InvitedeventModel.create(invitation);
+                      
+                          res.status(200).json({
+                            success: true,
+                            successMessage: 'Invitation for the event stored successfully ...!',
+                          });
+                        } catch (error) {
+                          console.error(error);
+                          res.status(500).json({
+                            success: false,
+                            serverErrorMessage: 'SERVER ERROR',
+                          });
+                        }
+                      };
+                      
+
+  
+  // API for get InvitedEvent of user
+                        const getInvitedEvent = async (req, res) => {
+                          try {
+                            const { phone_no } = req.body;
+                        
+                            // check for user via phone_no
+                            const user = await userModel.findOne({ phone_no: phone_no });
+                        
+                            if (!user) {
+                              return res.status(400).json({
+                                success: false,
+                                userExistanceMessage: 'user not found in user table',
+                              });
+                            }
+                        
+                            // check if user is a guest in any Invited event
+                            const invitedEvents = await InvitedeventModel.find({
+                              'Guests.phone_no': phone_no,
+                            });
+                        
+                            if (invitedEvents.length === 0) {
+                              return res.status(400).json({
+                                success: false,
+                                userExistanceMessage: 'user not invited to any event',
+                              });
+                            }
+                        
+                            // Extract event details excluding the Guests array for the first event
+                            const eventsDetails =  invitedEvents.map(event => {
+                              return {
+                                ...event.toObject(),
+                                Guests: undefined,
+                              };
+                            });
+                        
+                            return res.status(200).json({
+                              success: true,
+                              eventsDetails,
+                            });
+                          } catch (error) {
+                            console.error(error);
+                            return res.status(500).json({
+                              success: false,
+                              serverErrorMessage: 'Server Error',
+                            });
+                          }
+                        };
+  
+        // APi for update events
+        const updateEvent = async (req, res) => {
+          try {
+              const eventId = req.params.eventId;
+              const { title, description } = req.body;
       
+              // Check for event existence
+              const event = await eventModel.findOne({
+                  _id: eventId
+              });      
+              if (!event) {
+                  return res.status(400).json({
+                      success: false,
+                      eventExistanceMessage: 'Event does not exist'
+                  });
+              }      
+              // Update event 
+              event.title = title;
+              event.description = description;
+      
+              // Save the updated event
+              await event.save();
+      
+             
+              return res.status(200).json({
+                  success: true,
+                  successMessage: 'Event updated successfully'
+              });
+          } catch (error) {
+              console.error(error);
+              return res.status(500).json({
+                  success: false,
+                  serverErrorMessage: 'Server Error'
+              });
+          }
+      };
+      
+  // get event by Id
+                          const getEvent = async(req , res) =>{
+                            try {
+                              const eventId = req.params.eventId;
+                          
+                              // Validate eventId (you may want to add more validation)
+                              if (!eventId) {
+                                return res.status(400).json({
+                                  success: false,
+                                  message: 'Invalid eventId',
+                                });
+                              }
+                          
+                              const event = await eventModel.findById(eventId);
+                          
+                              if (!event) {
+                                return res.status(404).json({
+                                  success: false,
+                                  message: 'Event not found',
+                                });
+                              }
+                          
+                              res.status(200).json({
+                                success: true,
+                                message: 'Event found',
+                                event_data: event,
+                              });
+                            } catch (error) {                              
+                              return res.status(500).json({
+                                success: false,
+                                message: 'There is a server error',
+                              });
+                            }
+                          };
+  // APi for get all Envited Event
+
+                           const getAllInvited_Event = async(req ,res)=>{
+                            try {
+                                    const AllInvited_Events = await InvitedeventModel.find({ })
+
+                                    if(!AllInvited_Events)
+                                    {
+                                      return res.status(400).json({
+
+                                               success : false ,
+                                               eventExistanceMessage : 'there is no invited events here ..!'
+                                      })
+                                    }
+                                          return res.status(200).json({
+                                                       success : true ,
+                                                        successMessage : 'all Invited Events' ,
+                                                        all_Invited_Events : AllInvited_Events
+                                          })
+                                  } catch (error) {
+                              return res.status(500).json({
+                                             success : false ,
+                                             serverErrorMessage : 'server Error'
+                              })
+                            }
+                           }    
+  // APi for get all venues of events
+                               const getVenuesOf_Event = async(req ,res)=>{
+                                try {
+                                       const eventId = req.params.eventId
+                                       const event = await eventModel.findOne({ _id : eventId })
+                                       if(!event)
+                                       {
+                                         return res.status(400).json({
+                                                                 success : false ,
+                                                                 message : 'event not found'
+                                         })
+                                       }
+                                       
+                                       const event_venues = event.venue_Date_and_time                                 
+                                         return res.status(200).json({
+                                                               success : true ,
+                                                               message : 'event images ',
+                                                               eventId : eventId,
+                                                               event_venues : event_venues
+                                         })
+                                } catch (error) {
+                                  return res.status(500).json({
+                                                 success : false ,
+                                                 serverErrorMessage : 'server Error'
+                                  })
+                                }
+                               }              
+                           
 module.exports = {
                     userSignUp , userLogin , create_Event , newVenue_Date_Time , add_co_host ,
                      edit_Venue_Date_Time , delete_Venue_Date_Time , add_guest , import_Guest ,
                      getAllGuest  , addAllGuestsToBookmark , deleteGuestInCollection , searchEvent ,
                      getFilteredEvent , feedback , deleteEvent , deleteUser , getImages , delete_co_Host , getAllEvents,
-                     getUserEvent   , contactUsPage , faqPage
-
+                     getUserEvent   , contactUsPage , faqPage , sendInvitation , getInvitedEvent , updateEvent , getEvent,
+                     getAllInvited_Event , getVenuesOf_Event
 }

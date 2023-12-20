@@ -16,6 +16,8 @@ const userController = require('../controller/userController')
 
     // API for create an event
                          router.post('/create_Event/:userId',upload.array('images', 100), userController.create_Event)
+     // API for update event by eventId
+                        router.put('/updateEvent/:eventId' , userController.updateEvent)
     // API for add venue_Date_Time in event
                          router.post('/newVenue_Date_Time/:eventId' , userController.newVenue_Date_Time)
     // API for add co-host in event
@@ -61,7 +63,17 @@ const userController = require('../controller/userController')
                                 /* FAQ Page  */
     // API for FAQ page
                         router.post('/faqPage', userController.faqPage)
-   
+                                
+                                /*   Invite Event */
+                       router.post('/sendInvitation/:eventId', userController.sendInvitation)
+// API for get Invited events of user
+                        router.get('/getInvitedEvent' , userController.getInvitedEvent)
+// APi to get event by Id
+                        router.get('/getEvent/:eventId', userController.getEvent)
+// API for get all Invited Events
+                        router.get('/getAllInvited_Event', userController.getAllInvited_Event)
+// APi for get events venue Date and time
+                         router.get('/getVenuesOf_Event/:eventId', userController.getVenuesOf_Event)
     
 
 module.exports = router

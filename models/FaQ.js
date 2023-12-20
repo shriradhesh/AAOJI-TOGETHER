@@ -20,11 +20,7 @@ const faqSchema = new Schema({
     type : Number ,
     required : true
     },
-
-    subject : {
-        type : String ,
-        required : true
-    },
+    
     message : {
         type : String,
         required : true
