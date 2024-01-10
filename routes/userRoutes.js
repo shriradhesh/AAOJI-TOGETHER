@@ -7,6 +7,9 @@ const userController = require('../controller/userController')
                                  /* User APIs */
     // API for signup user
                     router.post('/userSignUp',upload.single('profileImage'), userController.userSignUp)
+
+    // api for update user
+                router.post('/updateUser/:id', userController.updateUser)
     // API for user Login
                     router.post('/userLogin', userController.userLogin)
     // API for delete user
@@ -17,11 +20,13 @@ const userController = require('../controller/userController')
     // API for create an event
                          router.post('/create_Event/:userId',upload.array('images', 100), userController.create_Event)
      // API for update event by eventId
-                        router.put('/updateEvent/:eventId' , userController.updateEvent)
+                        router.post('/updateEvent/:eventId' ,upload.array('images', 100), userController.updateEvent)
     // API for add venue_Date_Time in event
                          router.post('/newVenue_Date_Time/:eventId' , userController.newVenue_Date_Time)
     // API for add co-host in event
                          router.post('/add_co_host/:eventId', userController.add_co_host)
+    // APi for get all co-hosts
+                          router.get('/getAll_co_Hosts/:eventId', userController.getAll_co_Hosts)
     // API for edit venue_Date_Time in event
                          router.put('/edit_Venue_Date_Time/:venueId/:eventId' , userController.edit_Venue_Date_Time)
     // API for delete delete_Venue_Date_Time in event
@@ -31,7 +36,9 @@ const userController = require('../controller/userController')
     // API for import guest Data in event                      
                          router.post('/import_Guest/:eventId', upload.single('file') , userController.import_Guest)
     // API for getAllGuest in event
-                         router.get('/getAllGuest/:eventId', userController.getAllGuest)    
+                         router.get('/getAllGuest/:eventId', userController.getAllGuest)
+    // APi for delete particular guest
+                         router.delete('/delete_Guest/:eventId/:guestId', userController.delete_Guest)    
     // API for add all guests of Event into BookMark with collectionName
                          router.post('/addAllGuestsToBookmark/:eventId', userController.addAllGuestsToBookmark)
     // APi for delete a Guest of collection in bookmark model
@@ -67,13 +74,21 @@ const userController = require('../controller/userController')
                                 /*   Invite Event */
                        router.post('/sendInvitation/:eventId', userController.sendInvitation)
 // API for get Invited events of user
-                        router.get('/getInvitedEvent' , userController.getInvitedEvent)
+                        router.get('/getMyInvitation' , userController.getMyInvitation)
 // APi to get event by Id
                         router.get('/getEvent/:eventId', userController.getEvent)
 // API for get all Invited Events
-                        router.get('/getAllInvited_Event', userController.getAllInvited_Event)
+                        router.get('/getAllInvited_Event/:userId', userController.getAllInvited_Event)
 // APi for get events venue Date and time
                          router.get('/getVenuesOf_Event/:eventId', userController.getVenuesOf_Event)
+// API for send response to Invited event by user
+                          router.post('/userRespondToInvitedEvent/:eventId' , userController.userRespondToInvitedEvent)
+// APi for  getAllGuest_with_Response
+                         router.get('/getAllGuest_with_Response/:eventId', userController.getAllGuest_with_Response) 
+// APi for  getResponseEvent
+                         router.get('/getallResponseEvent', userController.getallResponseEvent) 
+// APi for check phone_no existance
+                         router.post('/numberExistance', userController.numberExistance)
     
 
 module.exports = router

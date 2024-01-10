@@ -17,22 +17,24 @@ const InvitedeventModel = require('../models/Invitation')
 const Admin = require('../models/AdminModel')
 const faqModel = require('../models/FaQ')
 
-
+const fast2sms = require('fast-two-sms')
 const twilio = require('twilio');
-
+const phoneUtil = require('libphonenumber-js');
+const userResponseEventModel = require('../models/userResponseEvent')
 const accountSid = 'AC126e34876c0bcb57eca92293dedfbc93';
 const authToken = '45a257477425131532341d7c50154269';
-const twilioPhoneNumber = '+17078202575'; 
-
+const twilioPhone  = '+17078202575'; 
+const twilioClient = new twilio(accountSid, authToken);
+const axios = require('axios');
                                 /* API for users */
     // API for user signup
      
     const userSignUp = async (req, res) => {
       try {
-          const { fullName, phone_no , email } = req.body;
+          const { fullName, phone_no, email } = req.body;
   
           // Validation
-          const requiredFields = ['fullName', 'phone_no' , 'email'];
+          const requiredFields = ['fullName', 'phone_no'];
           for (const field of requiredFields) {
               if (!req.body[field]) {
                   return res.status(400).json({
@@ -52,13 +54,13 @@ const twilioPhoneNumber = '+17078202575';
           }
   
           // Save user
-          const imagePath = req.file.filename;
+          const imagePath = req.file ? req.file.filename : null; // Check if a file is uploaded
           const newUser = new userModel({
               fullName,
               phone_no,
               profileImage: imagePath,
               user_status: userModel.schema.path('user_status').getDefault(),
-              email
+              email: email || null, 
           });
   
           const saveUser = await newUser.save();
@@ -73,11 +75,11 @@ const twilioPhoneNumber = '+17078202575';
                   profileImage: saveUser.profileImage,
                   userId: saveUser._id,
                   user_status: saveUser.user_status,
-                  email : saveUser.email
+                  email: saveUser.email,
               },
           });
       } catch (error) {
-          console.error(error); 
+          console.error(error);
           res.status(500).json({
               success: false,
               message: 'There is a server error',
@@ -85,6 +87,62 @@ const twilioPhoneNumber = '+17078202575';
       }
   };
   
+      // update user
+      const updateUser = async (req, res) => {
+        try {
+            const id = req.params.id;
+            
+            const { fullName, phone_no, email } = req.body;
+            const user = await userModel.findOne({ _id: id });
+    
+            // Check for user existence
+            if (!user) {
+                return res.status(404).json({ success: false, message: 'User not found' });
+            }
+    
+            user.fullName = fullName;
+    
+            // Validate and update Phone number
+            if (phone_no) {
+                user.phone_no = phone_no;
+            }
+    
+            // Create or update email field
+            user.email = email || null; 
+            const updateUser = await user.save();
+            return res.status(200).json({ success: true, message: 'User profile updated successfully', user: updateUser });
+        } catch (error) {
+            console.log(error);
+            res.status(500).json({ success: false, message: 'Error while updating user profile' });
+        }
+    };
+      
+      // APi for check number existance
+      const numberExistance = async (req, res) => {
+        try {
+          const phone_no = req.body.phone_no;
+          // check for phone_no existence
+          const phone_exist = await userModel.findOne({ phone_no });
+      
+          if (!phone_exist) {
+            return res.status(400).json({
+              success: false,
+              phone_no_required: 'Phone number does not exist in the user table',
+            });
+          } else {
+            return res.status(200).json({
+              success: true,             
+              successMessage: 'phone number exists in the user table',
+            });
+          }
+        } catch (error) {
+          return res.status(500).json({
+            success: false,
+            serverError: 'Server error',
+          });
+        }
+      };
+      
 
     // user login
                     const userLogin = async(req,res)=>{                      
@@ -120,124 +178,106 @@ const twilioPhoneNumber = '+17078202575';
 
     // API for create Event
     const create_Event = async (req, res) => {
-        try {
-          const userId = req.params.userId
-          const { title, description, event_Type, venue_Date_and_time , Guests , co_hosts
-
-          } = req.body;
-      
-          const requiredFields = ['title', 'description', 'event_Type', 'venue_Date_and_time'];
-          for (const field of requiredFields) {
-            if (!req.body[field]) {
-              return res.status(400).json({ message: `Missing ${field.replace('_', ' ')} field`, success: false });
-            }
+      try {
+        const userId = req.params.userId;
+        const {
+          title,
+          description,
+          event_Type,
+          venue_Date_and_time,
+        } = req.body;
+    
+        const requiredFields = ['title', 'description', 'event_Type'];
+        for (const field of requiredFields) {
+          if (!req.body[field]) {
+            return res.status(400).json({ message: `Missing ${field.replace('_', ' ')} field`, success: false });
           }
-             // check for user 
-             const user = await userModel.findOne({ _id : userId })
-             if(!user)
-             {
-              return res.status(400).json({ success : false , message : `user not found`})
-             }
-                 const userName = user.fullName                 
-          // Check if an event with the same date and time already exists in the venue_Date_and_time 
-          const existingEvent = await eventModel.findOne({
-            'venue_Date_and_time.date': venue_Date_and_time.date,
-            'venue_Date_and_time.start_time': venue_Date_and_time.start_time,
-            'venue_Date_and_time.end_time': venue_Date_and_time.end_time,
-            'venue_Date_and_time.venue_location' : venue_Date_and_time.venue_location
-          });                    
+        }
+    
+        // check for user 
+        const user = await userModel.findOne({ _id: userId });
+        if (!user) {
+          return res.status(400).json({ success: false, message: `User not found` });
+        }
+        const userName = user.fullName;
+    
+        const event = await eventModel.findOne({
+          userId,
+          title
+      });
+      
+      if (event) {
+          return res.status(400).json({
+              success: false,
+              eventExistanceMessage: 'Event already exists with the same userId and title'
+          });
+      }
 
-          if (existingEvent) {
-            return res.status(400).json({ message: ' venue with date and time already exist in venue location ', success: false });
+        // Initialize venue_details as an empty array
+        let venue_details = [];
+    
+        // If venue_Date_and_time is provided, process and set the details
+        if (venue_Date_and_time) {
+          if (venue_Date_and_time !== '') {
+            venue_details = JSON.parse(venue_Date_and_time);
           }
-      
-          // Process and store multiple image files
-          const imagePaths = [];
-          if (req.files && req.files.length > 0) {
-            req.files.forEach(file => {
-              imagePaths.push(file.filename);
-            });
-          }      
-          const newEvent = new eventModel({
-            title,
-            description,
-            event_Type,
-            venue_Date_and_time: [
-              {
-                venue_Name: venue_Date_and_time.venue_Name,
-                venue_location: venue_Date_and_time.venue_location,
-                date: venue_Date_and_time.date,
-                start_time: venue_Date_and_time.start_time,
-                end_time: venue_Date_and_time.end_time
-              }
-            ],
-            Guests: [
-              {
-                
-                Guest_Name: Guests.Guest_Name,                
-                phone_no: Guests.phone_no,
-                 status : 0
-              }
-            ],
-            co_hosts: [
-              {              
-                
-                co_host_Name: co_hosts.co_host_Name,                
-                phone_no: co_hosts.phone_no,
-                
-              }
-            ],
-            images: imagePaths,
-            userId : userId,
-            userName : userName,
-            event_status :  eventModel.schema.path('event_status').getDefault(),           
-            
-          });
-      
-          const saveEvent = await newEvent.save();
-          const newAdminNotification = new AdminNotificationDetail({
-            userId  , 
-            userName : userName    ,                                    
-            message: `congratulation ..!! , new event : ${saveEvent.title} has been made by the user : ${userName} `,
-            date: new Date(),    
-          
-          });
-          await newAdminNotification.save()
-          res.status(200).json({
-            success: true,
-            message: 'new Event created successfully',
-            event_details: saveEvent
-          });
-        } catch (error) {
-           console.error(error); 
-          return res.status(500).json({
-            success: false,
-            message: 'There is a server error'
+        }
+    
+        // Process and store multiple image files
+        const imagePaths = [];
+        if (req.files && req.files.length > 0) {
+          req.files.forEach(file => {
+            imagePaths.push(file.filename);
           });
         }
-      };
-
-
+    
+        const newEvent = new eventModel({
+          title,
+          description,
+          event_Type,
+          venue_Date_and_time: venue_details,
+          Guests: [], 
+          co_hosts: [], 
+          images: imagePaths,
+          userId: userId,
+          userName: userName,
+          event_status: eventModel.schema.path('event_status').getDefault(),
+        });
+    
+        const saveEvent = await newEvent.save();
+        const newAdminNotification = new AdminNotificationDetail({
+          userId,
+          userName: userName,
+          message: `Congratulations..!! New event: ${saveEvent.title} has been created by the user: ${userName}`,
+          date: new Date(),
+        });
+    
+        await newAdminNotification.save();
+        res.status(200).json({
+          success: true,
+          message: 'New Event created successfully',
+          eventId: saveEvent._id
+        });
+      } catch (error) {
+        console.error(error);
+        return res.status(500).json({
+          success: false,
+          message: 'There is a server error'
+        });
+      }
+    };
+    
+    
+    
+    
+    
 // API for add multiple event 
            
            const newVenue_Date_Time = async (req ,res) =>{
             const eventId = req.params.eventId
-            const {venue_Name , venue_location, date , start_time , end_time} = req.body     
+            const {sub_event_title ,venue_Name , venue_location, date , start_time , end_time} = req.body     
             try {
-                const requiredFields = [                
-                    'venue_Name', 
-                    'venue_location',                                                                          
-                    'date' ,
-                    'start_time',
-                    'end_time'     
-            
-                ];
-                      for (const field of requiredFields){
-                        if(!req.body[field])
-                        {
-                          return res.status(400).json({ message : `missing ${field.replace('_', ' ')} field`, success: false})
-                        }
-                      }                
+                        
 
                 const event = await eventModel.findOne({ _id:eventId })
       
@@ -247,16 +287,17 @@ const twilioPhoneNumber = '+17078202575';
                 }
 
                   //  newVenue_Date_Time is an array in the event model
-              const duplicateVenue_Date_Time = event.venue_Date_and_time.find((venue) => venue.venue_Name === venue_Name);
+              const duplicateVenue_Date_Time = event.venue_Date_and_time.find((venue) => venue.sub_event_title === sub_event_title);
 
-              if (duplicateVenue_Date_Time) {
-                return res.status(400).json({ success: false, message: `venue '${venue_Name}' already exists in a event` });
-              }
-                 const dates =  new Date(date)
+              // if (duplicateVenue_Date_Time) {
+              //   return res.status(400).json({ success: false, message: `venue '${venue_Name}' already exists in a event` });
+              // }
+                
               event.venue_Date_and_time.push({
+                sub_event_title,
                 venue_Name, 
                 venue_location,                               
-                date:dates,
+                date:date,
                 start_time,
                 end_time
 
@@ -366,7 +407,7 @@ const twilioPhoneNumber = '+17078202575';
                                   res.status(200).json({
                                     success : true,
                                     message : `co-host deleted successfully in eventId : ${eventId}`
-                  })
+                                    })
 
                                 } catch (error) {
                                   return res.status(500).json({
@@ -375,7 +416,39 @@ const twilioPhoneNumber = '+17078202575';
                                   })
                                 }
                               }
+      
+            // APi for get co-host  of event
                              
+            const getAll_co_Hosts = async (req, res) => {
+              try {
+                const eventId = req.params.eventId;
+            
+                // Check for event existence
+                const event = await eventModel.findOne({ _id: eventId });
+            
+                if (!event) {
+                  return res.status(404).json({
+                    success: false,
+                    message: 'Event not found',
+                  });
+                }
+            
+                const co_Hosts = event.co_hosts;
+            
+                res.status(200).json({
+                  success: true,
+                  message: 'All coHosts in the event',
+                  co_hostsData: co_Hosts,
+                });
+              } catch (error) {
+                
+                res.status(500).json({
+                  success: false,
+                  message: 'There is a server error',
+                });
+              }
+            };
+
  
 // API for edit Venue_Date_Time 
                     const edit_Venue_Date_Time = async (req ,res)=>{
@@ -383,7 +456,7 @@ const twilioPhoneNumber = '+17078202575';
                       try {
                           const venueId = req.params.venueId;
                           eventId = req.params.eventId;
-                          const {venue_Name , venue_location, date , start_time , end_time} = req.body
+                          const {sub_event_title , venue_Name , venue_location, date , start_time , end_time} = req.body
                           // Check for event existence
                           const existEvent = await eventModel.findOne({ _id: eventId });
                           if (!existEvent) {
@@ -406,6 +479,7 @@ const twilioPhoneNumber = '+17078202575';
                           }
                             const dates =  new Date(date)
                               // Update the properties of the venue
+                            existEvent.venue_Date_and_time[existVenueIndex].sub_event_title = sub_event_title
                             existEvent.venue_Date_and_time[existVenueIndex].venue_Name = venue_Name
                             existEvent.venue_Date_and_time[existVenueIndex].venue_location = venue_location
                             existEvent.venue_Date_and_time[existVenueIndex].date = dates
@@ -479,7 +553,7 @@ const twilioPhoneNumber = '+17078202575';
                             const add_guest = async (req, res) => {
                               try {
                                   const eventId = req.params.eventId;
-                                  const { Guest_Name, phone_no } = req.body;
+                                  const { Guest_Name, phone_no } = req.body;                                        
 
                                   const requiredFields = ['Guest_Name', 'phone_no'];
 
@@ -513,7 +587,7 @@ const twilioPhoneNumber = '+17078202575';
                                       phone_no,
                                       status: 0,
                                   });
-
+                                      
                                   await event.save();
 
                                   return res.status(200).json({
@@ -530,7 +604,7 @@ const twilioPhoneNumber = '+17078202575';
                               }
                             };
 
-
+   
 
       // API for import guest from excel
                           const import_Guest = async (req, res) => {
@@ -628,131 +702,224 @@ const twilioPhoneNumber = '+17078202575';
                     };
 
                                                               
-                          
+   // Api for delete Guests in event
+                      const delete_Guest = async (req , res)=>{
+                                                  
+                        try {
+                          const eventId = req.params.eventId
+                          const guestId = req.params.guestId
+
+                          // check for event 
+                          const event = await eventModel.findOne({ _id : eventId })
+                          if(!event)
+                          {
+                            return res.status(400).json({
+                                            success : false ,
+                                              message : `event : ${eventId} not found`
+                            })
+                          }                                   
+                                                              
+                                // check for Guest existance
+                            const exist_guestIndex = event.Guests.findIndex(guest => guest._id.toString() === guestId)
+                            if(exist_guestIndex === -1)
+                            {
+                              return res.status(400).json({ 
+                                                        success : false ,
+                                                        message : `guest not found`
+                              })
+                            }
+
+
+                          // remove the guest from the Guests array
+                          event.Guests.splice(exist_guestIndex , 1)
+
+                          await eventModel.findByIdAndUpdate(
+                            { _id : eventId },
+                            { Guests : event.Guests}
+                          )
+
+                          res.status(200).json({
+                            success : true,
+                            message : `Guest deleted successfully in eventId : ${eventId}`
+                            })
+
+                        } catch (error) {
+                          return res.status(500).json({
+                                                    success : false ,
+                                                    message : 'there is an server error'
+                          })
+                        }
+                      }                       
   // API to add all guest as favourite in bookmark 
-                                  const addAllGuestsToBookmark = async (req, res) => {
-                                    try {
-                                      const eventId = req.params.eventId;
-                                      const collectionName = req.body.collectionName;
-                                  
-                                      // Validate collectionName as a required field
-                                      if (!collectionName) {
-                                        return res.status(400).json({
-                                          success: false,
-                                          message: 'collectionName is a required field',
-                                        });
-                                      }
-                                  
-                                      // Check if collectionName already exists in bookmark table
-                                      const existingCollection = await bookmarkModel.findOne({
-                                        collectionName: collectionName,
-                                      });
-                                  
-                                      if (!existingCollection) {
-                                        // If collectionName does not exist in bookmark table, create a new collection
-                                        const newCollection = new bookmarkModel({
-                                          collectionName: collectionName,
-                                        });
-                                  
-                                        // Save the new collection entry
-                                        await newCollection.save();
-                                      }
-                                  
-                                      // Check event existence
-                                      const event = await eventModel.findOne({ _id: eventId });
-                                      if (!event) {
-                                        return res.status(400).json({
-                                          success: false,
-                                          message: 'No event found',
-                                        });
-                                      }
-                                  
-                                      // Get all unique guests in the event
-                                      const uniqueGuests = Array.from(
-                                        new Set(event.Guests.map((guest) => guest._id.toString()))
-                                      ).map((guestId) =>
-                                        event.Guests.find((guest) => guest._id.toString() === guestId)
-                                      );
-                                  
-                                      // Iterate through all unique guests in the event and add to bookmark
-                                      for (const guest of uniqueGuests) {
-                                        // Check if the guest is already in the bookmark
-                                        const existingBookmark = await bookmarkModel.findOne({
-                                          Guest_Name: guest.Guest_Name,
-                                          phone_no: guest.phone_no,
-                                          collectionName: collectionName,
-                                        });
-                                  
-                                        // If not in the bookmark, add to bookmark with status code 1
-                                        if (!existingBookmark) {
-                                          const bookMarkEntry = new bookmarkModel({
-                                            Guest_Name: guest.Guest_Name,
-                                            phone_no: guest.phone_no,
-                                            status: 1,
-                                            collectionName: collectionName,
-                                          });
-                                  
-                                          // Save the bookmark entry
-                                          await bookMarkEntry.save();
-                                        }
-                                      }
-                                  
-                                      res.status(200).json({
-                                        success: true,
-                                        message: 'All guests added to bookmark as favorites',
-                                      });
-                                    } catch (error) {
-                                      console.error(error);
-                                      return res.status(500).json({
-                                        success: false,
-                                        message: 'There is a server error',
-                                      });
-                                    }
-                                  };
+  const addAllGuestsToBookmark = async (req, res) => {
+    try {
+      const eventId = req.params.eventId;
+      const collectionName = req.body.collectionName;
+  
+      // Validate collectionName as a required field
+      if (!collectionName) {
+        return res.status(400).json({
+          success: false,
+          message: 'collectionName is a required field',
+        });
+      }
+  
+      // Check if collectionName already exists in bookmark table
+      const existingCollection = await bookmarkModel.findOne({
+        'collections.name': collectionName,
+      });
+  
+      let updatedCollection;
+  
+      if (!existingCollection) {
+        // If collectionName does not exist in bookmark table, create a new collection
+        const newCollection = new bookmarkModel({
+          collections: [{ name: collectionName, entries: [] }],
+        });
+  
+        // Check event existence
+        const event = await eventModel.findOne({ _id: eventId });
+        if (!event) {
+          return res.status(400).json({
+            success: false,
+            message: 'No event found',
+          });
+        }
+  
+        // Get all unique guests in the event
+        const uniqueGuests = Array.from(
+          new Set(event.Guests.map((guest) => guest._id.toString()))
+        ).map((guestId) =>
+          event.Guests.find((guest) => guest._id.toString() === guestId)
+        );
+  
+        // Set the entries array directly with uniqueGuests values
+        newCollection.collections[0].entries = uniqueGuests.map((guest) => ({
+          Guest_Name: guest.Guest_Name,
+          phone_no: guest.phone_no,
+          status: 1,
+        }));
+  
+        // Save the new collection entry
+        updatedCollection = await newCollection.save();
+      } else {
+        // Check event existence
+        const event = await eventModel.findOne({ _id: eventId });
+        if (!event) {
+          return res.status(400).json({
+            success: false,
+            message: 'No event found',
+          });
+        }
+  
+        // Get all unique guests in the event
+        const uniqueGuests = Array.from(
+          new Set(event.Guests.map((guest) => guest._id.toString()))
+        ).map((guestId) =>
+          event.Guests.find((guest) => guest._id.toString() === guestId)
+        );
+  
+        // Update the bookmark with unique entries using $addToSet
+        await bookmarkModel.updateOne(
+          { 'collections.name': collectionName },
+          {
+            $addToSet: {
+              'collections.$.entries': {
+                $each: uniqueGuests.map((guest) => ({
+                  Guest_Name: guest.Guest_Name,
+                  phone_no: guest.phone_no,
+                  status: 1,
+                })),
+              },
+            },
+          }
+        );
+  
+        // Fetch the updated collection
+        updatedCollection = await bookmarkModel.findOne({
+          'collections.name': collectionName,
+        });
+      }
+  
+      res.status(200).json({
+        success: true,
+        message: 'All guests added to bookmark as favorites',
+        collection_details: updatedCollection.collections.find(
+          (collection) => collection.name === collectionName
+        ),
+      });
+    } catch (error) {
+      console.error(error);
+      return res.status(500).json({
+        success: false,
+        message: 'There is a server error',
+      });
+    }
+  };
+  
+  
+  
   
                           
           // delete a particular guest in a collection in bookMark model
-                         const deleteGuestInCollection = async (req ,res)=> {
-                          try {
-                            const guestId = req.params.guestId
-                            collectionName = req.body.collectionName
-
-                            
-                            // check for guest
-                            const guest = await bookmarkModel.findOneAndDelete({
-                              _id:guestId,
-                              collectionName
-                            })
-                            
-                              if(!collectionName)
-                              {
-                                return res.status(400).json({
-                                                       success : false ,
-                                                       message : 'please provide collection Name'
-                                })
-                              }
-                            if(!guest)
-                            {
-                              return res.status(400).json({
-                                                       success : false ,
-                                                       message  : `Guest not found in collection  : ${collectionName}`
-                              })
-                            }
-                            res.status(200).json({
-                                                  success : true,
-                                                  message : `Guest deleted Successfully in collection : ${collectionName}`
-                            })
-                            
-
-                          } catch (error) {
-                            console.error(error);
-                            return res.status(500).json({
-                                                   success : false ,
-                                                   message : ' there is an server error '
-                            })
-                          }
-                         }
-                            
+          const deleteGuestInCollection = async (req, res) => {
+            try {
+              const guestId = req.params.guestId;
+              const collectionName = req.body.collectionName;
+          
+              // Check for the presence of collectionName
+              if (!collectionName) {
+                return res.status(400).json({
+                  success: false,
+                  message: 'Please provide a collectionName',
+                });
+              }
+          
+              // Find the collection with the specified name
+              const collection = await bookmarkModel.findOne({
+                'collections.name': collectionName,
+              });
+          
+              // Check if the collection exists
+              if (!collection) {
+                return res.status(400).json({
+                  success: false,
+                  message: `Collection not found: ${collectionName}`,
+                });
+              }
+          
+              // Find the index of the guest in the entries array
+              const guestIndex = collection.collections[0].entries.findIndex(
+                (entry) => entry._id.toString() === guestId
+              );
+          
+              // Check if the guest exists in the collection
+              if (guestIndex === -1) {
+                return res.status(400).json({
+                  success: false,
+                  message: `Guest not found in collection: ${collectionName}`,
+                });
+              }
+          
+              // Remove the guest from the entries array
+              collection.collections[0].entries.splice(guestIndex, 1);
+          
+              // Save the updated collection
+              await collection.save();
+          
+              res.status(200).json({
+                success: true,
+                message: `Guest deleted successfully from collection: ${collectionName}`,
+              });
+            } catch (error) {
+              console.error(error);
+              return res.status(500).json({
+                success: false,
+                message: 'There is a server error',
+              });
+            }
+          };
+          
       // get an particular event
                                  const searchEvent = async (req , res)=>{
                                   try {
@@ -1135,78 +1302,144 @@ const twilioPhoneNumber = '+17078202575';
                         }
                       }         
   
+                     
+
                       const sendInvitation = async (req, res) => {
                         try {
-                          const { eventId } = req.params;
-                      
-                          // Find event
-                          const event = await eventModel.findOne({ _id: eventId }).populate('Guests');
-                          if (!event) {
-                            return res.status(400).json({
-                              success: false,
-                              eventExistanceMessage: 'Event not found',
-                            });
-                          }
-                      
-                          // Create invitations object
-                          const invitation = {
-                            hostId: event.userId,
-                            eventId : eventId,
-                            hostName: event.userName,                        
-                            event_title: event.title,
-                            event_description: event.description,
-                            event_Type: event.event_Type,
-                            co_hosts: event.co_hosts,
-                            Guests: event.Guests,
-                            images: event.images,
-                            event_status: event.event_status,
-                            venue_Date_and_time: event.venue_Date_and_time,
-                            event_status :  InvitedeventModel.schema.path('event_status').getDefault(),     
-                         
-                          };
-                      
-                          // Save invitation to the database
-                          await InvitedeventModel.create(invitation);
-                      
-                          res.status(200).json({
-                            success: true,
-                            successMessage: 'Invitation for the event stored successfully ...!',
-                          });
-                        } catch (error) {
-                          console.error(error);
-                          res.status(500).json({
-                            success: false,
-                            serverErrorMessage: 'SERVER ERROR',
-                          });
+                            const { eventId } = req.params;
+                    
+                            // Find event
+                            const event = await eventModel.findOne({ _id: eventId }).populate('Guests');
+                            if (!event) {
+                                return res.status(400).json({
+                                    success: false,
+                                    eventExistanceMessage: 'Event not found',
+                                });
+                            }
+                           
+                        // Check for bus number
+                        const existInvitedEvent = await InvitedeventModel.findOne({ eventId });
+                
+                        if (existInvitedEvent) {
+                            return res.status(400).json({ success : true , message: 'you already invite Guests for these event ' });
                         }
-                      };
-                      
-
+                            // Create invitations object
+                            const invitation = {
+                                hostId: event.userId,
+                                eventId: eventId,
+                                hostName: event.userName,
+                                event_title: event.title,
+                                event_description: event.description,
+                                event_Type: event.event_Type,
+                                co_hosts: event.co_hosts,
+                                Guests: event.Guests,
+                                images: event.images,
+                                event_status: event.event_status,
+                                venue_Date_and_time: event.venue_Date_and_time,
+                                event_status: InvitedeventModel.schema.path('event_status').getDefault(),
+                            };
+                    
+                            // Populate Guests array with default status
+                            invitation.Guests = event.Guests.map(guest => ({
+                                Guest_Name: guest.Guest_Name,
+                                phone_no: guest.phone_no,
+                                status: 2, // Default status: 2 (pending)
+                            }));
+                    
+                            // Save invitation to the database
+                            await InvitedeventModel.create(invitation);
+                    
+                            for (const guest of event.Guests) {
+                                // Convert the phone number string to numeric format
+                                const phone_no_numeric = parseInt(guest.phone_no, 10);
+                                const formattedPhoneNumber = `+91${phone_no_numeric}`;
+                                const  message = `Hello, you are invited to ${event.title} by ${event.userName}. Receive updates about the event on the link: https://localhost.com`;
+                               
+                    
+                                // Use SMS Gateway Hub to send SMS
+                                await sendSMSUsingGatewayHub(formattedPhoneNumber, message);
+                            }
+                    
+                            res.status(200).json({
+                                success: true,
+                                successMessage: 'Invitation for the event stored successfully, and SMS sent to guests!',
+                            });
+                        } catch (error) {
+                            console.error('Error:', error.response ? error.response.data : error.message);
+                            res.status(500).json({
+                                success: false,
+                                serverErrorMessage: 'SERVER ERROR',
+                            });
+                        }
+                    };
+                    
+                    const sendSMSUsingGatewayHub = async (formattedPhoneNumber, message, apiKey = 'DfRvyBzYh02aalLlL4j9Zg', senderId = 'FESSMS') => {
+                      const gatewayHubApiUrl = 'https://www.smsgatewayhub.com/api/mt/SendSMS';
+                  
+                      try {
+                          // const encodedMessage = encodeURIComponent(message);
+                  
+                          const response = await axios.get(gatewayHubApiUrl, {
+                              headers: {
+                                  'Content-Type': 'application/x-www-form-urlencoded',
+                              },
+                              params: {
+                                  APIKey: apiKey,
+                                  senderid: senderId,
+                                  channel: 2,
+                                  DCS: 0,
+                                  flashsms: 0,
+                                  number: formattedPhoneNumber,
+                                  text: message,
+                                  route: 31,
+                                  EntityId: '1111111111111111111',
+                                  dlttemplateid: '1111111111111111111',
+                                  TelemarketerId: 123,
+                              },
+                          });
+                  
+                          console.log('SMS sent successfully:', response.data);
+                      } catch (error) {
+                          console.error('Error sending SMS:', error.response ? error.response.data : error.message);
+                          throw error;
+                      }
+                  };             
+                  
+           
   
   // API for get InvitedEvent of user
-                        const getInvitedEvent = async (req, res) => {
+                        const getMyInvitation = async (req, res) => {
                           try {
                             const { phone_no } = req.body;
-                        
+
+                            if(!phone_no)
+                            {
+                              return res.status(400).json({
+                                       success : false ,
+                                       phone_n0_required : 'phone number Required'
+                              })
+                            }
+                           
                             // check for user via phone_no
                             const user = await userModel.findOne({ phone_no: phone_no });
                         
                             if (!user) {
                               return res.status(400).json({
                                 success: false,
-                                userExistanceMessage: 'user not found in user table',
+                                userExistanceMessage: 'user not registerd yet with these number',
                               });
                             }
                         
                             // check if user is a guest in any Invited event
                             const invitedEvents = await InvitedeventModel.find({
                               'Guests.phone_no': phone_no,
+                             
                             });
                         
                             if (invitedEvents.length === 0) {
                               return res.status(400).json({
                                 success: false,
-                                userExistanceMessage: 'user not invited to any event',
+                                userInvitedMessage: 'user not invited to any event',
                               });
                             }
                         
@@ -1217,11 +1450,16 @@ const twilioPhoneNumber = '+17078202575';
                                 Guests: undefined,
                               };
                             });
-                        
+                            const sortedeventsDetails = eventsDetails.sort(
+                              (a, b) => b.createdAt - a.createdAt
+                            );
                             return res.status(200).json({
                               success: true,
-                              eventsDetails,
+                              sortedeventsDetails ,
+                              
+
                             });
+                            
                           } catch (error) {
                             console.error(error);
                             return res.status(500).json({
@@ -1234,39 +1472,138 @@ const twilioPhoneNumber = '+17078202575';
         // APi for update events
         const updateEvent = async (req, res) => {
           try {
-              const eventId = req.params.eventId;
-              const { title, description } = req.body;
-      
-              // Check for event existence
-              const event = await eventModel.findOne({
-                  _id: eventId
-              });      
-              if (!event) {
-                  return res.status(400).json({
-                      success: false,
-                      eventExistanceMessage: 'Event does not exist'
-                  });
-              }      
-              // Update event 
-              event.title = title;
-              event.description = description;
-      
-              // Save the updated event
-              await event.save();
-      
-             
-              return res.status(200).json({
-                  success: true,
-                  successMessage: 'Event updated successfully'
+            const eventId = req.params.eventId;
+            const {
+              title,
+              description,
+              event_Type,
+              sub_event_title,
+              venue_Name,
+              venue_location,
+              date,
+              start_time,
+              end_time,
+              images,
+              venue_Date_and_time,
+            } = req.body;
+        
+            // Convert event_key to number if it's a string
+            let event_key = req.body.event_key;
+        
+            if (typeof event_key === 'string') {
+              event_key = parseInt(event_key);
+            }
+        
+            // Check for event existence
+            const existingEvent = await eventModel.findOne({ _id: eventId });
+            if (!existingEvent) {
+              return res.status(400).json({
+                success: false,
+                eventExistanceMessage: 'Event does not exist',
               });
-          } catch (error) {
-              console.error(error);
-              return res.status(500).json({
-                  success: false,
-                  serverErrorMessage: 'Server Error'
+            }
+               // Check if req.files exist and if it contains images
+         if (req.files && req.files.length > 0) {
+             const images = [];
+  
+        for (const file of req.files) {
+          // Ensure that the file is an image
+          if (file.mimetype.startsWith('image/')) {
+            // If the Event Images already exist, delete the old file if it exists
+            if (existingEvent.images && existingEvent.images.length > 0) {
+              existingEvent.images.forEach(oldFileName => {
+                const oldFilePath = `uploads/${oldFileName}`;
+                if (fs.existsSync(oldFilePath)) {
+                  fs.unlinkSync(oldFilePath);
+                }
               });
+            }
+            // Add the new image filename to the images array
+            images.push(file.filename);
           }
-      };
+        }
+  
+        // Update the images with the new one(s) or create a new one if it doesn't exist
+        existingEvent.images = images.length > 0 ? images : undefined;
+      }
+  
+        
+            // Update event details
+            if (title) {
+              existingEvent.title = title;
+            }
+            if (description) {
+              existingEvent.description = description;
+            }
+            if (event_Type) {
+              existingEvent.event_Type = event_Type;
+            }
+        
+            if (event_key === 1) {
+              const venueArrayLength = existingEvent.venue_Date_and_time.length;
+        
+              if (venueArrayLength === 1) {
+                // Update the existing venue details
+                const existingVenue = existingEvent.venue_Date_and_time[0];
+                existingVenue.sub_event_title = sub_event_title;
+                existingVenue.venue_Name = venue_Name;
+                existingVenue.venue_location = venue_location;
+                existingVenue.date = date;
+                existingVenue.start_time = start_time;
+                existingVenue.end_time = end_time;
+              } else if (venueArrayLength === 0) {
+                // Add a new venue
+                existingEvent.venue_Date_and_time.push({
+                  sub_event_title,
+                  venue_Name,
+                  venue_location,
+                  date,
+                  start_time,
+                  end_time,
+                });
+              } else {
+                // Handle the case where venueArrayLength is greater than 1 (which should not happen)
+                return res.status(400).json({
+                  success: false,
+                  errorMessage: 'Invalid venueArrayLength for event_key 1',
+                });
+              }
+        
+              // Save the updated event back to the database
+              await existingEvent.save();
+            } else if (event_key === 2) {
+              // Initialize venue_details as an empty array
+              let venue_details = [];
+        
+              // If venue_Date_and_time is provided, process and set the details
+              if (venue_Date_and_time) {
+                if (venue_Date_and_time !== '') {
+                  venue_details = JSON.parse(venue_Date_and_time);
+                }
+              }
+        
+              // Push multiple data at a time to venue_Date_and_time array
+              existingEvent.venue_Date_and_time.push(...venue_details);
+        
+              await existingEvent.save();
+            } else {
+              // Handle other event_key values if needed
+            }
+        
+            return res.status(200).json({
+              success: true,
+              successMessage: 'Event updated successfully',
+            });
+          } catch (error) {
+            console.error(error);
+            return res.status(500).json({
+              success: false,
+              serverErrorMessage: 'Server Error',
+            });
+          }
+        };
+        
+      
       
   // get event by Id
                           const getEvent = async(req , res) =>{
@@ -1306,7 +1643,20 @@ const twilioPhoneNumber = '+17078202575';
 
                            const getAllInvited_Event = async(req ,res)=>{
                             try {
-                                    const AllInvited_Events = await InvitedeventModel.find({ })
+                              const userId = req.params.userId
+                              // check for userId
+                              if(!userId)
+                              {
+                                return res.status(400).json({
+                                              success : false ,
+                                              userIdRequired : 'user Id required'
+                                })
+                              }
+
+                                    const AllInvited_Events = await InvitedeventModel.find({ 
+                                          hostId : userId
+
+                                    })
 
                                     if(!AllInvited_Events)
                                     {
@@ -1356,11 +1706,227 @@ const twilioPhoneNumber = '+17078202575';
                                 }
                                }              
                            
+// API for give response to Invited event on the behaf of user
+                          const userRespondToInvitedEvent = async (req, res) => {
+                            try {
+                              const eventId = req.params.eventId;
+                              const { response, event_title, selected_subEvent_Names, phone_no } = req.body;
+
+                              // Check if the event exists
+                              const invitedEvent = await InvitedeventModel.findOne({ eventId });
+
+                              if (!invitedEvent) {
+                                return res.status(400).json({
+                                  success: false,
+                                  eventMessage: 'Event not found',
+                                });
+                              }
+
+                              // Now check if the user exists in userModel using the provided phone_no
+                              const user = await userModel.findOne({ phone_no });
+
+                              if (!user) {
+                                return res.status(400).json({
+                                  success: false,
+                                  userExistanceMessage: 'User not found ',
+                                });
+                              }
+                                  // Check if the user has already responded to the event
+                                const userResponse = await userResponseEventModel.findOne({
+                                  eventId:eventId ,
+                                  'Guests.phone_no': user.phone_no,
+                                });
+
+                                if (userResponse) {
+                                  return res.status(400).json({
+                                    success: false,
+                                    responseMessage: 'You already responded to the event',
+                                  });
+                                }
+                              // Create a single response record for the entire event
+                              const responseMapping = {
+                                yes: 'accept',
+                                no: 'reject',
+                                maybe: 'undecided',
+                                'yes-multiple': 'accept-all',
+                                'some-multiple': 'accept-some',
+                                'no-multiple': 'reject',
+                              };
+
+                              const venueStatus = responseMapping[response] === 'accept' || responseMapping[response] === 'some' ? 1 : responseMapping[response] === 'no' ? 2 : 0;
+
+                              // Check if there is an existing record in userResponseEventModel for the same InvitedEventId
+                              const existingUserResponse = await userResponseEventModel.findOne({
+                                InvitedEventId: invitedEvent._id,
+                              });
+
+                              if (existingUserResponse) {
+                                // Update the existing record
+                                existingUserResponse.Guests.push({
+                                  Guest_Name: user.fullName,
+                                  phone_no: user.phone_no,
+                                  guest_status: responseMapping[response] === 'accept' ? 0 : responseMapping[response] === 'reject' ? 1 : 0,
+                                  venue: invitedEvent.venue_Date_and_time.length === 1 ? invitedEvent.venue_Date_and_time.map((venueDetails, index) => ({
+                                    sub_event_title: venueDetails.sub_event_title,
+                                    venue_status: venueStatus,
+                                  })) : (selected_subEvent_Names && selected_subEvent_Names.length > 0) ? selected_subEvent_Names.map((sub_event_title, index) => ({
+                                    sub_event_title: sub_event_title,
+                                    venue_status: venueStatus,
+                                  })) : [],
+                                  eventId: eventId, 
+                                });
+
+                                // Update each sub_event_status based on the user's response
+                                existingUserResponse.Guests.forEach(guest => {
+                                  guest.venue.forEach(venue => {
+                                    venue.venue_status = venueStatus;
+                                  });
+                                });
+
+                                // Save the updated record
+                                await existingUserResponse.save();
+                              } else {
+                                // Create a new record if it doesn't exist
+                                const newUserResponse = new userResponseEventModel({
+                                  hostId: invitedEvent.hostId,
+                                  hostName: invitedEvent.hostName,
+                                  InvitedEventId: invitedEvent._id, // Add the InvitedEventId
+                                  eventId: eventId, // Add the eventId
+                                  event_title: invitedEvent.venue_Date_and_time.length === 1 ? event_title : invitedEvent.event_title,
+                                  event_description: invitedEvent.event_description,
+                                  event_Type: invitedEvent.venue_Date_and_time.length === 1 ? 'single' : 'multiple',
+                                  Guests: [
+                                    {
+                                      Guest_Name: user.fullName,
+                                      phone_no: user.phone_no,
+                                      guest_status: responseMapping[response] === 'accept' ? 0 : responseMapping[response] === 'reject' ? 1 : 0,
+                                      venue: invitedEvent.venue_Date_and_time.length === 1 ? invitedEvent.venue_Date_and_time.map((venueDetails, index) => ({
+                                        sub_event_title: venueDetails.sub_event_title,
+                                        venue_status: venueStatus,
+                                      })) : (selected_subEvent_Names && selected_subEvent_Names.length > 0) ? selected_subEvent_Names.map((sub_event_title, index) => ({
+                                        sub_event_title: sub_event_title,
+                                        venue_status: venueStatus,
+                                      })) : [],
+                                    },
+                                  ],
+                                  images: invitedEvent.images,
+                                });
+
+                                // Save the new record
+                                await newUserResponse.save();
+                              }
+
+                              return res.status(200).json({
+                                success: true,
+                                responseMessage: 'Event response saved successfully',
+                              });
+                            } catch (error) {
+                              console.error(error);
+                              return res.status(500).json({
+                                success: false,
+                                serverErrorMessage: 'Server Error',
+                              });
+                            }
+                          };
+
+
+        // APi for get all Guests with there response for invitation
+                            const getAllGuest_with_Response = async (req, res) => {
+                              try {
+                                const eventId = req.params.eventId;
+                            
+                                // Check if eventId is provided
+                                if (!eventId) {
+                                  return res.status(400).json({
+                                    success: false,
+                                    eventIdRequired: 'Event Id required',
+                                  });
+                                }
+                            
+                                // Check if the event exists in the event model
+                                const event = await eventModel.findOne({ _id: eventId });
+                            
+                                if (!event) {
+                                  return res.status(400).json({
+                                    success: false,
+                                    eventExistanceMessage: 'Event not found in event model',
+                                  });
+                                }
+                            
+                                // Check if the invitation event exists in the Invitation table
+                                const invitationEvent = await InvitedeventModel.findOne({ eventId });
+                            
+                                if (!invitationEvent) {
+                                  return res.status(400).json({
+                                    success: false,
+                                    InvitationEvent_ExistanceMessage: 'there is no invitation for the eventId',
+                                  });
+                                }
+                            
+                                // Check if there are guest responses for the invitation event
+                                const guests_ResponseEvent = await userResponseEventModel.findOne({ eventId });
+                            
+                                if (!guests_ResponseEvent) {
+                                  return res.status(400).json({
+                                    success: false,
+                                    guests_ResponseEvent: 'There is no guests response exist for the invitation',
+                                  });
+                                }
+                            
+                                // Extract the list of guests from the Guests array
+                                const guestsList = guests_ResponseEvent.Guests;
+                            
+                                return res.status(200).json({
+                                  success: true,
+                                  successMessage: 'Invitation response guests Lists',
+                                  guests_list: guestsList,
+                                });
+                              } catch (error) {
+                                console.error(error);
+                                return res.status(500).json({
+                                  success: false,
+                                  serverErrorMessage: 'Server Error',
+                                });
+                              }
+                            };
+                            
+                    // Api for get response event
+                  const getallResponseEvent = async ( req , res )=> {
+
+                         try {                        
+                          
+                          const responseEvent = await userResponseEventModel.find({})
+                          if(!responseEvent)
+                          {
+                            return res.status(400).json({
+                                      success : false ,
+                                      responseEventExistance : 'response event not found'
+                            })
+                          }
+                          else
+                          {
+                            return res.status(200).json({
+                                          success : true ,
+                                          successMessage : 'Guests response event',
+                                          guests_ResponseEvent : responseEvent
+
+                            })
+                          }
+                         } catch (error) {
+                           return res.status(500).json({
+                                       success : false ,
+                                       serverErrorMessage : 'server Error'
+                           })
+                         }
+                  }
+
+                  
 module.exports = {
                     userSignUp , userLogin , create_Event , newVenue_Date_Time , add_co_host ,
                      edit_Venue_Date_Time , delete_Venue_Date_Time , add_guest , import_Guest ,
                      getAllGuest  , addAllGuestsToBookmark , deleteGuestInCollection , searchEvent ,
                      getFilteredEvent , feedback , deleteEvent , deleteUser , getImages , delete_co_Host , getAllEvents,
-                     getUserEvent   , contactUsPage , faqPage , sendInvitation , getInvitedEvent , updateEvent , getEvent,
-                     getAllInvited_Event , getVenuesOf_Event
+                     getUserEvent   , contactUsPage , faqPage , sendInvitation , getMyInvitation , updateEvent , getEvent,
+                     getAllInvited_Event , getVenuesOf_Event , userRespondToInvitedEvent , getAll_co_Hosts , getAllGuest_with_Response ,
+                     delete_Guest , getallResponseEvent , updateUser , numberExistance
 }

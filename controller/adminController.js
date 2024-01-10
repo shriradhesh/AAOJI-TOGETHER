@@ -450,31 +450,32 @@ const login_Admin = async (req, res) => {
                
                   
 // API for get all collections name 
-                        const getCollectionsName = async (req, res) => {
-                            try {
-                                // Retrieve all unique collection names from bookmarkModel
-                                const uniqueCollectionNames = await bookmarkModel.distinct('collectionName');
-
-                                if (!uniqueCollectionNames || uniqueCollectionNames.length === 0) {
-                                    return res.status(400).json({
-                                        success: false,
-                                        existanceMessage: 'No collections found'
-                                    });
-                                } else {
-                                    return res.status(200).json({
-                                        success: true,
-                                        successMessage: 'All unique collections',
-                                        allCollections: uniqueCollectionNames
-                                    });
-                                }
-                            } catch (error) {
-                                console.error(error);
-                                return res.status(500).json({
-                                    success: false,
-                                    serverError: 'Server error'
-                                });
-                            }
-                        };
+const getAllCollections = async (req, res) => {
+    try {
+      // Fetch all collections from the bookmarkModel
+      const allCollections = await bookmarkModel.find({}, 'collections');
+  
+      if (!allCollections || allCollections.length === 0) {
+        return res.status(400).json({
+          success: false,
+          existanceMessage: 'No collections found',
+        });
+      }
+  
+      res.status(200).json({
+        success: true,
+        successMessage: 'All collections with details',
+        collections: allCollections.map((bookmark) => bookmark.collections),
+      });
+    } catch (error) {
+      console.error(error);
+      return res.status(500).json({
+        success: false,
+        serverError: 'Server error',
+      });
+    }
+  };
+  
 
             // APi for get all guests of a collection  in bookMark model
 
@@ -1264,5 +1265,5 @@ const login_Admin = async (req, res) => {
                                 getPrivacy_and_Policy , getAllFeedback , deleteFeedback , getAllUser ,
                                 checkAndToggleStatus_Of_User  , getAdminNotification , sendNotification_to_allUser,
                                 sendNotification_to_user , sendNotifications , getAll_Users_Notificatation , 
-                                deleteNotifcationById , getContactUs_Details , deleteContactDetails , getFAQ , getCollectionsName
+                                deleteNotifcationById , getContactUs_Details , deleteContactDetails , getFAQ , getAllCollections
                             }

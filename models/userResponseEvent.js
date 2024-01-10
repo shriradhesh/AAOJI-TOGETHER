@@ -13,6 +13,11 @@ const userResponseEventSchema = new Schema({
     type: Schema.Types.ObjectId,
     ref: "InvitedeventModel",
   },
+  eventId: {
+    type: Schema.Types.ObjectId,
+    ref: "InvitedeventModel",
+  },
+
   event_title: {
     type: String,
    
@@ -29,25 +34,28 @@ const userResponseEventSchema = new Schema({
         Guest_Name: {
               type: String
          },
-      phone_no: {
+         phone_no: {
               type: Number
       },
-
-      guest_status: {
-            type: Number,
-            enum: [0, 1],      // accepted , rejected
-            default: 0 // accepted
-      }, 
-      venue_Name: {
-            type: String,
-          },      
-     venue_status : {
-            type : Number ,
-            enum : [0,1,2,3],       //pending , accept , reject , maybe 
-            default : 0         // pending
-        }
-      }
-    
+        guest_status: {
+          type: Number,
+          enum: [0, 1 , 2 ,3],       // 0 = accept , 1 for reject , 2 for pending , 3 for may be
+          default: 2     
+        },
+          venue : [
+            {
+              sub_event_title: {
+                type: String,
+              },      
+              venue_status : {
+                type : Number ,
+                enum : [0,1,2,3],       //pending , accept , reject , maybe 
+                default : 0         // pending
+            },
+            },
+          ]
+           
+      }    
   ],
 
   images: {

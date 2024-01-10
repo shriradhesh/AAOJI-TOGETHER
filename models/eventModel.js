@@ -18,16 +18,16 @@ const eventSchema = new Schema({
   },
   title: {
     type: String,
-    required: true
+   
   },
   description: {
     type: String,
-    required: true
+   
   },
   event_Type: {
     type: String,
-    enum: ['Business_Conference', 'Music_Festivals', 'Birthday', 'Exhibitions', 'Wedding_Anniversary', 'sports', 'marriage' ,'Demo' , 'Marriage'],
-    required: true
+    enum: ['Business_Conference', 'Music_Festivals', 'Birthday', 'Exhibitions', 'Wedding_Anniversary', 'Sports', 'marriage' ,'Demo' , 'Marriage'],
+   
   },
   co_hosts: [
     {
@@ -35,7 +35,7 @@ const eventSchema = new Schema({
         type: String
       },
       phone_no: {
-        type: Number
+        type: String
       }
     },
   ],
@@ -45,7 +45,7 @@ const eventSchema = new Schema({
         type: String
       },
       phone_no: {
-        type: Number
+        type: String
       },
       status: {
         type: Number,
@@ -56,8 +56,9 @@ const eventSchema = new Schema({
   ],
   images: {
     type: [String],
-    required: true,
+    
   },
+  
 
   event_status: {
     type: Number,
@@ -67,25 +68,29 @@ const eventSchema = new Schema({
 
   venue_Date_and_time: [
     {
+      sub_event_title : 
+      {
+        type : String
+      },
       venue_Name: {
         type: String,
-        required: true,
+       
       },
       venue_location: {
         type: String,
-        required: true,
+        
       },
       date: {
         type: Date,
-        required: true,
+      
       },
       start_time: {
         type: String,
-        required: true,
+       
       },
       end_time: {
         type: String,
-        required: true
+        
       },
     }
   ],

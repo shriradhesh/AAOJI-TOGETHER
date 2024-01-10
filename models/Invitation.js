@@ -16,6 +16,7 @@ const InvitedeventSchema = new Schema({
   adminName : {
     type : String
   },
+  
   eventId: {
     type: Schema.Types.ObjectId,
     ref: "eventModel",
@@ -50,8 +51,8 @@ const InvitedeventSchema = new Schema({
       },
       status: {
         type: Number,
-        enum: [0, 1],
-        default: 0 
+        enum: [0, 1 , 2 ,3],       // 0 = accept , 1 for reject , 2 for pending , 3 for may be
+        default: 2     
       }
     },
   ],
@@ -67,7 +68,13 @@ const InvitedeventSchema = new Schema({
   },
 
   venue_Date_and_time: [
+    
     {
+      sub_event_title : 
+      {
+        type : String
+      },
+      
       venue_Name: {
         type: String,
        

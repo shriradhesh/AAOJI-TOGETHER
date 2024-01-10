@@ -1,21 +1,26 @@
 const mongoose = require('mongoose');
 
 const bookmarkSchema = new mongoose.Schema({
-  Guest_Name: {
-    type: String,
-  },
-  phone_no: {
-    type: Number,
-  },
-  status: {
-    type: Number,
-    enum: [0, 1],
-    default: 0,
-    // 1 for save as favorite
-  },
-  collectionName : {
-    type : String
-  }
+  collections: [{
+    name: {
+      type: String,
+      required: true,
+    },
+    entries: [{
+      Guest_Name: {
+        type: String,
+      },
+      phone_no: {
+        type: String,
+      },
+      status: {
+        type: Number,
+        enum: [0, 1],
+        default: 0,
+        // 1 for save as favorite
+      },
+    }],
+  }],
 }, { timestamps: true });
 
 const bookmarkModel = mongoose.model('bookmarkModel', bookmarkSchema);
