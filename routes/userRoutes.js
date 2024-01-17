@@ -9,11 +9,13 @@ const userController = require('../controller/userController')
                     router.post('/userSignUp',upload.single('profileImage'), userController.userSignUp)
 
     // api for update user
-                router.post('/updateUser/:id', userController.updateUser)
+                router.post('/updateUser/:id',upload.single('profileImage'), userController.updateUser)
     // API for user Login
                     router.post('/userLogin', userController.userLogin)
     // API for delete user
                     router.delete('/deleteUser/:userId', userController.deleteUser)
+   // Api for get user Detail
+                    router.get('/getUser/:userId', userController.getUser)
 
                                   /* Event management */
 
@@ -89,6 +91,27 @@ const userController = require('../controller/userController')
                          router.get('/getallResponseEvent', userController.getallResponseEvent) 
 // APi for check phone_no existance
                          router.post('/numberExistance', userController.numberExistance)
+// Api for getSubEventOf_Event of event
+                          router.get('/getSubEventOf_Event/:subEventId/:eventId', userController.getSubEventOf_Event)
+
+// APi for delete all Events
+                        router.delete('/deleteAllEvents', userController.deleteAllEvents)
     
 
+
+                                   /*   Event Album */
+// APi for create Event Album
+                        router.post('/createEventAlbum/:eventId', userController.createEventAlbum)
+// Api for get all Albums of the event
+                        router.get('/getAllAlbum/:eventId', userController.getAllAlbum)
+// APi for get particular album 
+                       router.get('/getParticularAlbum/:eventId/:Album_Id', userController.getParticularAlbum)
+// APi for add Images in Album
+                        router.post('/addImages_in_Album/:album_id/:image_arrayId', upload.array('images', 100), userController.addImages_in_Album)
+// APi for Rename Album
+                        router.post('/rename_album/:album_id', userController.rename_album)
+// APi for delete Album
+                        router.delete('/deleteAlbum/:album_id', userController.deleteAlbum)
+// Api for delete Image in Album
+                        router.delete('/deleteImage/:image_id/:album_id', userController.deleteImage)
 module.exports = router

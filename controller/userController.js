@@ -10,7 +10,7 @@ const multer = require('multer')
 const jwt = require('jsonwebtoken')
 const path = require('path')
 const ExcelJs = require('exceljs')
-
+const eventImageModel = require('../models/eventImages')
 const contactUs = require('../models/contactUs')
 const InvitedeventModel = require('../models/Invitation')
 
@@ -90,33 +90,101 @@ const axios = require('axios');
       // update user
       const updateUser = async (req, res) => {
         try {
-            const id = req.params.id;
-            
-            const { fullName, phone_no, email } = req.body;
-            const user = await userModel.findOne({ _id: id });
-    
-            // Check for user existence
-            if (!user) {
-                return res.status(404).json({ success: false, message: 'User not found' });
-            }
-    
-            user.fullName = fullName;
-    
-            // Validate and update Phone number
-            if (phone_no) {
-                user.phone_no = phone_no;
-            }
-    
-            // Create or update email field
-            user.email = email || null; 
-            const updateUser = await user.save();
-            return res.status(200).json({ success: true, message: 'User profile updated successfully', user: updateUser });
-        } catch (error) {
-            console.log(error);
-            res.status(500).json({ success: false, message: 'Error while updating user profile' });
-        }
-    };
+          const id = req.params.id;
+          const { fullName, phone_no, email } = req.body;
+          const user = await userModel.findOne({ _id: id });
       
+          // Check for user existence
+          if (!user) {
+            return res.status(404).json({ success: false, message: 'User not found' });
+          }
+      
+          user.fullName = fullName;
+      
+          // Validate and update Phone number
+          if (phone_no) {
+            user.phone_no = phone_no;
+          }
+      
+          // Create or update email field
+          user.email = email || null;
+      
+          // Check if a file is uploaded
+          if (req.file) {
+            const profile = req.file.filename;
+      
+            // Check if user already has a profile image
+            if (user.profileImage) {
+              // User has a profile image, update it
+              user.profileImage = profile;
+              await user.save();
+      
+              return res.status(200).json({
+                success: true,
+                message: 'Profile image and information updated successfully',
+              });
+            } else {
+              // User does not have a profile image, create it
+              user.profileImage = profile;
+              await user.save();
+      
+              return res.status(200).json({
+                success: true,
+                message: 'New profile image created and information updated successfully',
+              });
+            }
+          } else {
+            // No profile image provided, only update user information
+            await user.save();
+      
+            return res.status(200).json({
+              success: true,
+              message: 'User information updated successfully',
+            });
+          }
+        } catch (error) {
+          console.log(error);
+          res.status(500).json({ success: false, message: 'Error while updating user profile' });
+        }
+      };
+      
+  // Api for get particular user details by there id
+               const getUser = async( req ,res)=>{
+                try {
+                       const userId = req.params.userId
+                      // check for userId
+                  if(!userId)
+                  {
+                    return res.status(400).json({
+                                   success : false ,
+                                   userIdRequired : 'user id Required',
+
+                    })
+                  }
+
+                  // check for user
+                const user = await userModel.findOne({ _id : userId })
+                if(!user)
+                {
+                  return res.status({
+                                 success : false ,
+                                 userExistanceMessage : 'user not found'
+                  })
+                }
+                else
+                {
+                  return res.status(200).json({
+                                  success : true ,
+                                  user_details : user
+                  })
+                }
+                } catch (error) {
+                  return res.status(500).json({
+                               success : false ,
+                               serverErrorMessage : 'server Error'
+                  })
+                }
+               }
       // APi for check number existance
       const numberExistance = async (req, res) => {
         try {
@@ -456,6 +524,22 @@ const axios = require('axios');
                       try {
                           const venueId = req.params.venueId;
                           eventId = req.params.eventId;
+                          // check for subEventId
+                          if(!venueId)
+                          {
+                            return res.status(400).json({
+                                             success : false ,
+                                             subEventIdRequired : 'Sub event ID required'
+                            })
+                          }
+                        // check for eventId 
+                        if(!eventId)
+                        {
+                          return res.status(400).json({
+                                           success : false ,
+                                           eventIdRequired : 'event Id required'
+                          })
+                        }
                           const {sub_event_title , venue_Name , venue_location, date , start_time , end_time} = req.body
                           // Check for event existence
                           const existEvent = await eventModel.findOne({ _id: eventId });
@@ -467,7 +551,7 @@ const axios = require('axios');
                                 if(!existEvent.venue_Date_and_time || !Array.isArray(existEvent.venue_Date_and_time))
                                 {
                                   return res.status(400).json({ success : false ,
-                                                                message : "venue date and time not found in the route"})
+                                                                message : "venue date and time array not found in the route"})
                                 }
 
                               // Check for venueIndex
@@ -475,14 +559,14 @@ const axios = require('axios');
                               (venue) => venue._id.toString() === venueId
                           );
                           if (existVenueIndex === -1) {
-                              return res.status(404).json({ success: false, message: "venue not found" });
+                              return res.status(404).json({ success: false, message: "sub Event not found" });
                           }
-                            const dates =  new Date(date)
+                            
                               // Update the properties of the venue
                             existEvent.venue_Date_and_time[existVenueIndex].sub_event_title = sub_event_title
                             existEvent.venue_Date_and_time[existVenueIndex].venue_Name = venue_Name
                             existEvent.venue_Date_and_time[existVenueIndex].venue_location = venue_location
-                            existEvent.venue_Date_and_time[existVenueIndex].date = dates
+                            existEvent.venue_Date_and_time[existVenueIndex].date = date
                             existEvent.venue_Date_and_time[existVenueIndex].start_time = start_time
                             existEvent.venue_Date_and_time[existVenueIndex].end_time = end_time
                             
@@ -490,14 +574,14 @@ const axios = require('axios');
                               await existEvent.save()
                               return res.status(200).json({
                                                           success : true ,
-                                                          message : `venue edited successfully for event : ${eventId}`
+                                                          message : `SubEvent edited successfully for event : ${eventId}`
                               })
                           
                                   } catch (error) {
                                     
                                       return res.status(500).json({
                                           success : false ,
-                                          message : 'there is an server error'
+                                          message : ' server error'
                                       })
                                   }
                                 }
@@ -524,7 +608,7 @@ const axios = require('axios');
                                     {
                                       return res.status(400).json({
                                                              success : false ,
-                                                             message : "venue not found "
+                                                             message : "SubEvent not found "
                                       })
                                     }
                                   // remove the venue from the venue_Date_and_Time array
@@ -537,7 +621,7 @@ const axios = require('axios');
 
                                     res.status(200).json({
                                                       success : true,
-                                                      message : `venue deleted successfully in eventId : ${eventId}`
+                                                      message : `SubEvent deleted successfully in eventId : ${eventId}`
                                     })
 
 
@@ -749,115 +833,113 @@ const axios = require('axios');
                                                     message : 'there is an server error'
                           })
                         }
-                      }                       
+                      }        
+                                     
   // API to add all guest as favourite in bookmark 
-  const addAllGuestsToBookmark = async (req, res) => {
-    try {
-      const eventId = req.params.eventId;
-      const collectionName = req.body.collectionName;
-  
-      // Validate collectionName as a required field
-      if (!collectionName) {
-        return res.status(400).json({
-          success: false,
-          message: 'collectionName is a required field',
-        });
-      }
-  
-      // Check if collectionName already exists in bookmark table
-      const existingCollection = await bookmarkModel.findOne({
-        'collections.name': collectionName,
-      });
-  
-      let updatedCollection;
-  
-      if (!existingCollection) {
-        // If collectionName does not exist in bookmark table, create a new collection
-        const newCollection = new bookmarkModel({
-          collections: [{ name: collectionName, entries: [] }],
-        });
-  
-        // Check event existence
-        const event = await eventModel.findOne({ _id: eventId });
-        if (!event) {
-          return res.status(400).json({
-            success: false,
-            message: 'No event found',
-          });
-        }
-  
-        // Get all unique guests in the event
-        const uniqueGuests = Array.from(
-          new Set(event.Guests.map((guest) => guest._id.toString()))
-        ).map((guestId) =>
-          event.Guests.find((guest) => guest._id.toString() === guestId)
-        );
-  
-        // Set the entries array directly with uniqueGuests values
-        newCollection.collections[0].entries = uniqueGuests.map((guest) => ({
-          Guest_Name: guest.Guest_Name,
-          phone_no: guest.phone_no,
-          status: 1,
-        }));
-  
-        // Save the new collection entry
-        updatedCollection = await newCollection.save();
-      } else {
-        // Check event existence
-        const event = await eventModel.findOne({ _id: eventId });
-        if (!event) {
-          return res.status(400).json({
-            success: false,
-            message: 'No event found',
-          });
-        }
-  
-        // Get all unique guests in the event
-        const uniqueGuests = Array.from(
-          new Set(event.Guests.map((guest) => guest._id.toString()))
-        ).map((guestId) =>
-          event.Guests.find((guest) => guest._id.toString() === guestId)
-        );
-  
-        // Update the bookmark with unique entries using $addToSet
-        await bookmarkModel.updateOne(
-          { 'collections.name': collectionName },
-          {
-            $addToSet: {
-              'collections.$.entries': {
-                $each: uniqueGuests.map((guest) => ({
-                  Guest_Name: guest.Guest_Name,
-                  phone_no: guest.phone_no,
-                  status: 1,
-                })),
-              },
-            },
-          }
-        );
-  
-        // Fetch the updated collection
-        updatedCollection = await bookmarkModel.findOne({
-          'collections.name': collectionName,
-        });
-      }
-  
-      res.status(200).json({
-        success: true,
-        message: 'All guests added to bookmark as favorites',
-        collection_details: updatedCollection.collections.find(
-          (collection) => collection.name === collectionName
-        ),
-      });
-    } catch (error) {
-      console.error(error);
-      return res.status(500).json({
-        success: false,
-        message: 'There is a server error',
-      });
-    }
-  };
-  
-  
+                  const addAllGuestsToBookmark = async (req, res) => {
+                    try {
+                      const eventId = req.params.eventId;
+                      const collectionName = req.body.collectionName;
+                  
+                      // Validate collectionName as a required field
+                      if (!collectionName) {
+                        return res.status(400).json({
+                          success: false,
+                          message: 'collectionName is a required field',
+                        });
+                      }
+                  
+                      // Check if collectionName already exists in bookmark table
+                      const existingCollection = await bookmarkModel.findOne({
+                        'bookmark_Collection.name': collectionName,
+                      });
+                  
+                      let updatedCollection;
+                  
+                      if (!existingCollection) {
+                        // If collectionName does not exist in bookmark table, create a new collection
+                        const newCollection = new bookmarkModel({
+                          bookmark_Collection: [{ name: collectionName, entries: [] }],
+                        });
+                  
+                        // Check event existence
+                        const event = await eventModel.findOne({ _id: eventId });
+                        if (!event) {
+                          return res.status(400).json({
+                            success: false,
+                            message: 'No event found',
+                          });
+                        }
+                  
+                        // Get all unique guests in the event
+                        const uniqueGuests = Array.from(
+                          new Set(event.Guests.map((guest) => guest._id.toString()))
+                        ).map((guestId) =>
+                          event.Guests.find((guest) => guest._id.toString() === guestId)
+                        );
+                  
+                        // Set the entries array directly with uniqueGuests values
+                        newCollection.bookmark_Collection[0].entries = uniqueGuests.map((guest) => ({
+                          Guest_Name: guest.Guest_Name,
+                          phone_no: guest.phone_no,
+                          status: 1,
+                        }));
+                  
+                        // Save the new collection entry
+                        updatedCollection = await newCollection.save();
+                      } else {
+                        // Check event existence
+                        const event = await eventModel.findOne({ _id: eventId });
+                        if (!event) {
+                          return res.status(400).json({
+                            success: false,
+                            message: 'No event found',
+                          });
+                        }                  
+                        // Get all unique guests in the event
+                        const uniqueGuests = Array.from(
+                          new Set(event.Guests.map((guest) => guest._id.toString()))
+                        ).map((guestId) =>
+                          event.Guests.find((guest) => guest._id.toString() === guestId)
+                        );                  
+                        // Update the bookmark with unique entries using $addToSet
+                        await bookmarkModel.updateOne(
+                          { 'bookmark_Collection.name': collectionName },
+                          {
+                            $addToSet: {
+                              'bookmark_Collection.$.entries': {
+                                $each: uniqueGuests.map((guest) => ({
+                                  Guest_Name: guest.Guest_Name,
+                                  phone_no: guest.phone_no,
+                                  status: 1,
+                                })),
+                              },
+                            },
+                          }
+                        );
+                  
+                        // Fetch the updated collection
+                        updatedCollection = await bookmarkModel.findOne({
+                          'bookmark_Collection.name': collectionName,
+                        });
+                      }
+                  
+                      res.status(200).json({
+                        success: true,
+                        message: 'All guests added to bookmark as favorites',
+                        collection_details: updatedCollection.bookmark_Collection.find(
+                          (collection) => collection.name === collectionName
+                        ),
+                      });
+                    } catch (error) {
+                      console.error(error);
+                      return res.status(500).json({
+                        success: false,
+                        message: 'There is a server error',
+                      });
+                    }
+                  };
+                  
   
   
                           
@@ -877,7 +959,7 @@ const axios = require('axios');
           
               // Find the collection with the specified name
               const collection = await bookmarkModel.findOne({
-                'collections.name': collectionName,
+                'bookmark_Collection.name': collectionName,
               });
           
               // Check if the collection exists
@@ -889,7 +971,7 @@ const axios = require('axios');
               }
           
               // Find the index of the guest in the entries array
-              const guestIndex = collection.collections[0].entries.findIndex(
+              const guestIndex = collection.bookmark_Collection[0].entries.findIndex(
                 (entry) => entry._id.toString() === guestId
               );
           
@@ -902,7 +984,7 @@ const axios = require('axios');
               }
           
               // Remove the guest from the entries array
-              collection.collections[0].entries.splice(guestIndex, 1);
+              collection.bookmark_Collection[0].entries.splice(guestIndex, 1);
           
               // Save the updated collection
               await collection.save();
@@ -1174,10 +1256,13 @@ const axios = require('axios');
                         message: 'There are no events found',
                       });
                     }
+                    const sorted_Event = events.sort(
+                      (a, b) => b.createdAt - a.createdAt
+                    );
                     res.status(200).json({
                       success: true,
                       message: 'All Events',
-                      events_data: events,
+                      events_data: sorted_Event,
                     });
                   } catch (error) {
                     return res.status(500).json({
@@ -1211,10 +1296,15 @@ const axios = require('axios');
                       }
                       else
                       {
+                        // Sort user Event by createdAt
+                        const sorted_userEvent = event.sort(
+                          (a, b) => b.createdAt - a.createdAt
+                        );
+
                         return res.status(200).json({
                                        success : true ,
                                        message : 'user events',
-                                       events : event
+                                       events : sorted_userEvent
                         })
                       }
 
@@ -1538,8 +1628,10 @@ const axios = require('axios');
             if (event_Type) {
               existingEvent.event_Type = event_Type;
             }
-        
+            existingEvent.event_key = event_key
+            await existingEvent.save();
             if (event_key === 1) {
+              
               const venueArrayLength = existingEvent.venue_Date_and_time.length;
         
               if (venueArrayLength === 1) {
@@ -1553,6 +1645,19 @@ const axios = require('axios');
                 existingVenue.end_time = end_time;
               } else if (venueArrayLength === 0) {
                 // Add a new venue
+                    if(!venue_Name || !venue_location || !date ||!start_time || !end_time )
+                {
+                            
+                 
+                  return res.status(200).json({
+                                 success : true ,
+                                 successMessage: 'Event updated successfully'
+                  })
+                }
+                else
+                {
+                  
+                }
                 existingEvent.venue_Date_and_time.push({
                   sub_event_title,
                   venue_Name,
@@ -1568,23 +1673,27 @@ const axios = require('axios');
                   errorMessage: 'Invalid venueArrayLength for event_key 1',
                 });
               }
-        
+              existingEvent.event_key = event_key
               // Save the updated event back to the database
               await existingEvent.save();
-            } else if (event_key === 2) {
+            } 
+            
+            
+            else if (event_key === 2) {
               // Initialize venue_details as an empty array
               let venue_details = [];
-        
+               
               // If venue_Date_and_time is provided, process and set the details
               if (venue_Date_and_time) {
                 if (venue_Date_and_time !== '') {
                   venue_details = JSON.parse(venue_Date_and_time);
                 }
               }
-        
+            
+             
               // Push multiple data at a time to venue_Date_and_time array
               existingEvent.venue_Date_and_time.push(...venue_details);
-        
+              existingEvent.event_key = event_key
               await existingEvent.save();
             } else {
               // Handle other event_key values if needed
@@ -1678,7 +1787,7 @@ const axios = require('axios');
                               })
                             }
                            }    
-  // APi for get all venues of events
+  // APi for get all subEvents  of events
                                const getVenuesOf_Event = async(req ,res)=>{
                                 try {
                                        const eventId = req.params.eventId
@@ -1694,7 +1803,7 @@ const axios = require('axios');
                                        const event_venues = event.venue_Date_and_time                                 
                                          return res.status(200).json({
                                                                success : true ,
-                                                               message : 'event images ',
+                                                               message : 'Sub Events ',
                                                                eventId : eventId,
                                                                event_venues : event_venues
                                          })
@@ -1920,13 +2029,485 @@ const axios = require('axios');
                          }
                   }
 
-                  
-module.exports = {
+        // APi for get subEvent details of event 
+        
+        const getSubEventOf_Event = async(req ,res)=>{
+          try {
+                 const eventId = req.params.eventId
+                 const subEventId = req.params.subEventId
+                 const event = await eventModel.findOne({ _id : eventId })
+                 if(!subEventId)
+                 {
+                   return res.status(400).json({
+                                    success : false ,
+                                    subEventIdRequired : 'Sub event ID required'
+                   })
+                 }
+                  // Check if the venue_Date_and_time array exists within event
+
+                  if(!event.venue_Date_and_time || !Array.isArray(event.venue_Date_and_time))
+                  {
+                    return res.status(400).json({ success : false ,
+                                                  message : "date and time array not found in the route"})
+                  }
+
+                // Check for venueIndex
+            const existVenueIndex = event.venue_Date_and_time.findIndex(
+                (venue) => venue._id.toString() === subEventId
+            );
+            if (existVenueIndex === -1) {
+                return res.status(404).json({ success: false, message: "sub Event not found" });
+            }
+              else
+              {   
+                const subEventDetails = event.venue_Date_and_time[existVenueIndex];                              
+                   return res.status(200).json({
+                                         success : true ,
+                                         message : 'Sub Events Details ',
+                                         eventId : eventId,
+                                         subEvent_Details : subEventDetails                                        
+                   })
+                  }
+          } catch (error) {
+            return res.status(500).json({
+                           success : false ,
+                           serverErrorMessage : 'server Error'
+            })
+          }
+         }      
+// APi for delete all Event 
+         const deleteAllEvents = async (req, res) => {
+          try {
+            // Delete all events in the eventModel
+            const result = await eventModel.deleteMany({});
+        
+            if (result.deletedCount === 0) {
+              return res.status(400).json({
+                success: false,
+                message: 'No events found to delete',
+              });
+            }        
+            res.status(200).json({
+              success: true,
+              message: 'All events deleted successfully',
+              deletedCount: result.deletedCount,
+            });
+          } catch (error) {
+            return res.status(500).json({
+              success: false,
+              message: 'There is a server error',
+            });
+          }
+        };
+        
+  
+  // Api for create event Album
+  const createEventAlbum = async (req, res) => {
+    try {
+        const eventId = req.params.eventId;
+        const albumName = req.body.albumName;
+
+        if (!eventId) {
+            return res.status(200).json({
+                success: false,
+                eventIdRequired: 'Event Id required fields',
+            });
+        }
+
+        if (!albumName) {
+            return res.status(200).json({
+                success: false,
+                albumNameRequired: 'albumName required fields',
+            });
+        }
+
+        // Check for event existence
+        const event = await eventModel.findOne({ _id: eventId });
+
+        if (!event) {
+            return res.status(200).json({
+                success: false,
+                eventExistanceMessage: 'Event not found',
+            });
+        }
+
+        // Create a new album with the provided name
+        const newAlbum = new eventImageModel({
+            eventId: eventId,
+            images: [{
+                album_name: albumName,
+                image_entries: [],
+            }],
+        });
+
+        const createdAlbum = await newAlbum.save();
+
+        return res.status(200).json({
+            success: true,
+            message: 'Album created successfully',
+            eventId: event._id,
+            album_name: createdAlbum.images[0].album_name,
+            album_id: createdAlbum._id,
+            createdAt: createdAlbum.createdAt,
+            updatedAt: createdAlbum.updatedAt,
+            __v: createdAlbum.__v,
+        });
+    } catch (error) {
+        console.error(error);
+        return res.status(500).json({
+            success: false,
+            serverErrorMessage: 'Server Error',
+        });
+    }
+};
+
+
+  
+  
+  // Api for get all Albums
+  const getAllAlbum = async (req, res) => {
+    try {
+      const eventId = req.params.eventId;
+  
+      if (!eventId) {
+        return res.status(200).json({
+          success: false,
+          eventIdRequired: 'Event Id required',
+        });
+      }
+  
+      // Check for event existence in event_Image_Model
+      const event = await eventImageModel.findOne({ eventId });
+  
+      if (!event) {
+        return res.status(200).json({
+          success: false,
+          eventExistanceMessage: 'Event not found ',
+        });
+      }
+  
+      // Fetch all Albums from the event_Image_Model
+      const allAlbums = await eventImageModel.find({ eventId }, 'images');
+  
+      if (!allAlbums || allAlbums.length === 0) {
+        return res.status(200).json({
+          success: false,
+          existanceMessage: 'No Album found',
+        });
+      }
+  
+      // Extract and merge all 'Images' arrays into a single array
+      const mergedSubArray = allAlbums.reduce((acc, album) => {
+        return acc.concat(album.images);
+      }, []);
+  
+      // Extract the first index value of 'Image_entries' as a string
+      const simplifiedAlbums = mergedSubArray.map((album) => {
+        return {
+          album_id : album._id,
+          album_name: album.album_name,
+          first_image: album.image_entries.length > 0 ? album.image_entries[0] : null,
+        };
+      });
+  
+      res.status(200).json({
+        success: true,
+        success_message: 'All Albums with details',
+        albums: simplifiedAlbums,
+      });
+    } catch (error) {
+      console.error(error);
+      return res.status(500).json({
+        success: false,
+        serverError: 'Server error',
+      });
+    }
+  };
+  
+  
+  // get particular Album
+  
+
+  const getParticularAlbum = async (req, res) => {
+    try {
+        const eventId = req.params.eventId;
+        const Album_Id = req.params.Album_Id;
+
+        if (!eventId) {
+            return res.status(200).json({
+                success: false,
+                eventIdRequired: 'Event Id Required',
+            });
+        }
+
+        const event = await eventImageModel.findOne({ eventId });
+
+        if (!event) {
+            return res.status(200).json({
+                success: false,
+                eventExistanceMessage: 'event not found',
+            });
+        }
+
+        if (!Album_Id) {
+            return res.status(200).json({
+                success: false,
+                albumIdRequired: 'Album Id required',
+            });
+        }
+
+        const album = await eventImageModel.findOne({ _id: Album_Id }, 'images');
+
+        if (!album) {
+            return res.status(200).json({
+                success: false,
+                albumExistanceMessage: 'Album not found',
+            });
+        } else {
+            const { album_name, _id: album_id, images } = album;
+            const { _id: image_array_id, image_entries } = images[0];
+
+            return res.status(200).json({
+                success: true,
+                successMessage: 'Album Details',
+                album_name,
+                album_id,
+                image_array_id,
+                image_entries,
+            });
+        }
+    } catch (error) {
+        console.error(error);
+        return res.status(500).json({
+            success: false,
+            serverErrorMessage: 'server Error',
+        });
+    }
+};
+
+
+
+  
+
+          // Api for add Images in Album 
+          const addImages_in_Album = async (req, res) => {
+            try {
+                const album_id = req.params.album_id;
+                const image_arrayId = req.params.image_arrayId;
+        
+                // Check for album id and image array id
+                if (!album_id || !image_arrayId) {
+                    return res.status(200).json({
+                        success: false,
+                        albumIdRequired: 'Album Id Required',
+                        image_arrayIdRequired: 'Image Array Id Required',
+                    });
+                }
+        
+                // Check for album existence
+                const album = await eventImageModel.findOne({ _id: album_id });
+        
+                if (!album) {
+                    return res.status(200).json({
+                        success: false,
+                        albumExistanceMessage: 'Album not found',
+                    });
+                }
+        
+                // Find specified Image array within album
+                const imageArray = album.images.id(image_arrayId);
+        
+                if (!imageArray) {
+                    return res.status(200).json({
+                        success: false,
+                        image_array_existance_message: 'Image array not found in album',
+                    });
+                }
+        
+                // Add multiple images as objects with unique ids
+                const imageObjects = [];
+        
+                if (req.files && req.files.length > 0) {
+                    req.files.forEach(file => {
+                        const imageObject = {
+                            image_path: file.filename,
+                        };
+                        imageObjects.push(imageObject);
+                    });
+                }
+        
+                // Add image objects to image_entries array
+                imageArray.image_entries.push(...imageObjects);
+        
+                // Save the updated album
+                await album.save();
+        
+                return res.status(200).json({
+                    success: true,
+                    success_message: 'Images uploaded successfully',
+                    image_objects: imageObjects,
+                });
+            } catch (error) {
+                console.error(error);
+                return res.status(500).json({
+                    success: false,
+                    serverErrorMessage: 'Server Error',
+                });
+            }
+        };
+        
+    // Api for rename Album
+            const rename_album = async(req ,res)=>{
+              try {
+                      const album_id = req.params.album_id
+                      const new_album_name = req.body.new_album_name
+                    // check for albumId
+                  if(!album_id)
+                  {
+                    return res.status(200).json({
+                                 success : false ,
+                                 albumIdRequired : 'album Id required'
+                    })
+                  }
+
+              // check for album
+              const album = await eventImageModel.findOne({ _id : album_id }, 'images')
+              if(!album)
+              {
+                return res.status(200).json({
+                            success : false ,
+                            albumExistanceMessage : 'album not exist'
+                })
+              }
+              album.images[0].album_name = new_album_name;
+              await album.save();
+
+              return res.status(200).json({
+                       success : true ,
+                       success_message : 'album Renamed Successfully'
+              })
+              } catch (error) {
+                return res.status(500).json({
+                           success : false ,
+                           serverErrorMessage : 'server Error '
+                })
+              }
+            }
+
+            // Api for delete particular Album
+                const deleteAlbum = async(req ,res)=>{
+                  try {
+                           const album_id = req.params.album_id
+                        // check for album id
+                        if(!album_id)
+                        {
+                          return res.status(200).json({
+                                       success : false ,
+                                       albumIdRequired : 'album Id Required'
+                          })
+                        }
+
+                        // check for album
+                        const album = await eventImageModel.findOneAndDelete({ _id : album_id })
+                        if(!album)
+
+                        {
+                          return res.status(200).json({
+                                      success : false ,
+                                      albumExistanceMessage : 'album not exist'
+                          })
+                        }
+                        else
+                        {
+                          return res.status(200).json({
+                                           success : true,
+                                           success_message : 'album deleted successfully'
+                          })
+                        }
+                  } catch (error) {
+                          return res.status(500).json({
+                                       success : false ,
+                                       serverErrorMessage : 'server Error'
+                          })
+                  }
+                }
+
+          // APi for delete particular image in album
+                          const deleteImage = async(req ,res)=>{
+                            try {
+                                 const { image_id , album_id } = req.params
+                                 //check required fields
+                                 if(!image_id)
+                                 {
+                                  return res.status(200).json({
+                                           success : false ,
+                                           image_id_Required : 'image id required'
+                                  })
+                                 }
+                                
+                                 if(!album_id)
+                                 {
+                                  return res.status(200).json({
+                                           success : false ,
+                                           album_id_Required : 'album_id required'
+                                  })
+                                 }
+
+                                 // check for album
+                                 const album = await eventImageModel.findOne({ _id : album_id })
+                                 if(!album)
+                                 {
+                                  return res.status(200).json({
+                                               success : false ,
+                                               album_required : 'Album not exist'
+                                  })
+                                 }
+
+                                 // check for image in the specified image array
+
+                                 let image_found = false
+
+                                 album.images.forEach(imageArray => {
+                                  const imageIndex = imageArray.image_entries.findIndex(entry => 
+                                        entry._id.toString() === image_id)
+
+                                        if(imageIndex !== -1 )
+                                        {
+                                            imageArray.image_entries.splice(imageIndex , 1)
+
+                                            image_found = true
+                                        }
+                                 })
+
+                                    if(!image_found)
+                                    {
+                                      return res.status(200).json({
+                                          success : false ,
+                                          imageExistanceMessage :'image not found'
+                                      })
+                                    }
+
+                                       await album.save()
+
+                                       return res.status(200).json({
+                                             success : true,
+                                             success_message : 'Image Deleted successfully'
+                                       })
+                            }
+                             catch (error) {
+                              return res.status(500).json({
+                                         success : false ,
+                                         serverErrorMessage : 'server Error'
+                              })
+                            }
+                          }
+            module.exports = {
                     userSignUp , userLogin , create_Event , newVenue_Date_Time , add_co_host ,
                      edit_Venue_Date_Time , delete_Venue_Date_Time , add_guest , import_Guest ,
                      getAllGuest  , addAllGuestsToBookmark , deleteGuestInCollection , searchEvent ,
                      getFilteredEvent , feedback , deleteEvent , deleteUser , getImages , delete_co_Host , getAllEvents,
                      getUserEvent   , contactUsPage , faqPage , sendInvitation , getMyInvitation , updateEvent , getEvent,
                      getAllInvited_Event , getVenuesOf_Event , userRespondToInvitedEvent , getAll_co_Hosts , getAllGuest_with_Response ,
-                     delete_Guest , getallResponseEvent , updateUser , numberExistance
+                     delete_Guest , getallResponseEvent , updateUser , numberExistance , getSubEventOf_Event , getUser , deleteAllEvents ,
+                     createEventAlbum , getAllAlbum , getParticularAlbum , addImages_in_Album , rename_album , deleteAlbum , deleteImage
 }

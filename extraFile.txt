@@ -482,8 +482,178 @@ const getAllCollections = async (req, res) => {
   }
 };
 
+   
 
+
+
+
+
+
+
+
+
+
+
+
+{
+    "sub_event_title": "haldi",
+    "venue_Name": "taj hotel",
+    "venue_location ": "coloba , mumbai",
+    "date": "2024-02-13",
+    "start_time": "10:00:00",
+    "end_time": "13:00:00"
+  },
+  {
+    "sub_event_title": "mehndi",
+    "venue_Name": "taj hotel",
+    "venue_location": "coloba , mumbai",
+    "date": "2024-02-13",
+    "start_time": "14:00:00",
+    "end_time": "15:00:00"
+  },
+  {
+    "sub_event_title": "sangeet",
+    "venue_Name": "taj hotel",
+    "venue_location": "coloba , mumbai",
+    "date": "2024-02-14",
+    "start_time": "18:00:00",
+    "end_time": "22:00:00"
+  }
 
  
+****************************************************
 
 
+const addImages_in_Album = async (req, res) => {
+  try {
+    const album_id = req.params.album_id;
+    const image_arrayId = req.params.image_arrayId;
+
+    // Check for album id and image array id
+    if (!album_id) {
+      return res.status(400).json({
+        success: false,
+        albumIdRequired: 'Album Id Required',
+      });
+    }
+
+    if (!image_arrayId) {
+      return res.status(400).json({
+        success: false,
+        imageArrayIdRequired: 'Image Array Id Required',
+      });
+    }
+
+    // Check for album existence
+    const album = await eventImageModel.findOne({ _id: album_id });
+    if (!album) {
+      return res.status(400).json({
+        success: false,
+        albumNotFound: 'Album not found',
+      });
+    }
+
+    // Find the specified image array within the album
+    const imageArray = album.images.id(image_arrayId);
+    if (!imageArray) {
+      return res.status(400).json({
+        success: false,
+        imageArrayNotFound: 'Image Array not found in the specified album',
+      });
+    }
+
+    // Process and store multiple image files
+    const imagePaths = [];
+    if (req.files && req.files.length > 0) {
+      req.files.forEach(file => {
+        imagePaths.push(file.filename);
+      });
+    }
+
+    // Add image paths to the image_entries array
+    imageArray.image_entries.push(...imagePaths);
+
+    // Save the changes to the album
+    const updatedAlbum = await album.save();
+
+    return res.status(200).json({
+      success: true,
+      message: 'Images added to the album successfully',
+      updated_album: updatedAlbum,
+    });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({
+      success: false,
+      serverErrorMessage: 'Server Error',
+    });
+  }
+};
+
+
+*******************************************
+
+
+const deleteImage = async (req, res) => {
+    try {
+        const { image_id, album_id } = req.query;
+
+        // Check required fields
+        if (!image_id) {
+            return res.status(400).json({
+                success: false,
+                image_id_Required: 'Image id required',
+            });
+        }
+
+        if (!album_id) {
+            return res.status(400).json({
+                success: false,
+                album_id_Required: 'Album id required',
+            });
+        }
+
+        // Check for album
+        const album = await eventImageModel.findOne({ _id: album_id });
+
+        if (!album) {
+            return res.status(400).json({
+                success: false,
+                album_required: 'Album not exist',
+            });
+        }
+
+        // Check for image in any image array within the album
+        let imageFound = false;
+
+        album.images.forEach(imageArray => {
+            const imageIndex = imageArray.image_entries.findIndex(entry => entry._id.toString() === image_id);
+
+            if (imageIndex !== -1) {
+                // Remove the image with the specified image_id from the image_entries array
+                imageArray.image_entries.splice(imageIndex, 1);
+                imageFound = true;
+            }
+        });
+
+        if (!imageFound) {
+            return res.status(400).json({
+                success: false,
+                image_required: 'Image not found in any image array in the album',
+            });
+        }
+
+        await album.save();
+
+        return res.status(200).json({
+            success: true,
+            successMessage: 'Image deleted successfully',
+        });
+    } catch (error) {
+        console.error(error);
+        return res.status(500).json({
+            success: false,
+            serverErrorMessage: 'Server Error',
+        });
+    }
+};

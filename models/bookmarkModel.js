@@ -1,7 +1,7 @@
 const mongoose = require('mongoose');
 
 const bookmarkSchema = new mongoose.Schema({
-  collections: [{
+  bookmark_Collection: [{
     name: {
       type: String,
       required: true,

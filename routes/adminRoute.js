@@ -32,7 +32,9 @@ const nodemailer = require('nodemailer')
 // APi for checkAndToggleStatus of event
 router.post('/checkAndToggleStatus/:eventId', adminController.checkAndToggleStatus)
 // APi for get all collections
-       router.get('/getAllCollections', adminController.getAllCollections)                   
+       router.get('/getAllCollections', adminController.getAllCollections)       
+// APi for get collection by Id
+        router.get('/getCollectionById/:collectionId', adminController.getCollectionById)            
                                          /* FEEDBACK */
 // API for get all feedbacks of a event
                   router.get('/getFeedbacksofEvent/:eventId', adminController.getFeedbacksofEvent)

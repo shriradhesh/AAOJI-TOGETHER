@@ -452,29 +452,37 @@ const login_Admin = async (req, res) => {
 // API for get all collections name 
 const getAllCollections = async (req, res) => {
     try {
-      // Fetch all collections from the bookmarkModel
-      const allCollections = await bookmarkModel.find({}, 'collections');
-  
-      if (!allCollections || allCollections.length === 0) {
-        return res.status(400).json({
-          success: false,
-          existanceMessage: 'No collections found',
+        // Fetch all collections from the bookmarkModel
+        const allCollections = await bookmarkModel.find({}, 'bookmark_Collection');
+
+        if (!allCollections || allCollections.length === 0) {
+            return res.status(400).json({
+                success: false,
+                existanceMessage: 'No collections found',
+            });
+        }
+
+        // Extract and merge all 'collections' arrays into a single array
+        const mergedSubArray = allCollections.reduce((acc, bookmark) => {
+            return acc.concat(bookmark.bookmark_Collection);
+        }, []);
+
+        res.status(200).json({
+            success: true,
+            successMessage: 'All collections with details',
+            bookmark_Collection : mergedSubArray,
         });
-      }
-  
-      res.status(200).json({
-        success: true,
-        successMessage: 'All collections with details',
-        collections: allCollections.map((bookmark) => bookmark.collections),
-      });
     } catch (error) {
-      console.error(error);
-      return res.status(500).json({
-        success: false,
-        serverError: 'Server error',
-      });
+        console.error(error);
+        return res.status(500).json({
+            success: false,
+            serverError: 'Server error',
+        });
     }
-  };
+};
+
+
+
   
 
             // APi for get all guests of a collection  in bookMark model
@@ -1255,6 +1263,50 @@ const getAllCollections = async (req, res) => {
                                    }
           
                                    
+                            // API for get particular bookmark collection details
+                            const getCollectionById = async (req, res) => {
+                                try {
+                                const collectionId = req.params.collectionId;
+                            
+                                // Validate collectionId as a required field
+                                if (!collectionId) {
+                                    return res.status(400).json({
+                                    success: false,
+                                    message: 'collectionId is a required field',
+                                    });
+                                }
+                            
+                                // Fetch the collection by ID from the bookmarkModel
+                                const collection = await bookmarkModel.findOne({
+                                    _id: collectionId,
+                                });
+                            
+                                // Check if the collection exists
+                                if (!collection || collection.bookmark_Collection.length === 0) {
+                                    return res.status(400).json({
+                                    success: false,
+                                    existanceMessage: 'No collection found with the provided ID',
+                                    });
+                                }
+                            
+                                // Access the 'bookmark_Collection' directly without using reduce
+                                const bookmarkCollection = collection.bookmark_Collection;
+                            
+                                res.status(200).json({
+                                    success: true,
+                                    successMessage: 'Collection details retrieved successfully',
+                                    bookmark_Collection: bookmarkCollection,
+                                });
+                                } catch (error) {
+                                console.error(error);
+                                return res.status(500).json({
+                                    success: false,
+                                    serverError: 'Server error',
+                                });
+                                }
+                            };
+                            
+                                     
                                    
 
 
@@ -1265,5 +1317,6 @@ const getAllCollections = async (req, res) => {
                                 getPrivacy_and_Policy , getAllFeedback , deleteFeedback , getAllUser ,
                                 checkAndToggleStatus_Of_User  , getAdminNotification , sendNotification_to_allUser,
                                 sendNotification_to_user , sendNotifications , getAll_Users_Notificatation , 
-                                deleteNotifcationById , getContactUs_Details , deleteContactDetails , getFAQ , getAllCollections
+                                deleteNotifcationById , getContactUs_Details , deleteContactDetails , getFAQ , getAllCollections ,
+                                getCollectionById
                             }

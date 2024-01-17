@@ -58,13 +58,16 @@ const eventSchema = new Schema({
     type: [String],
     
   },
-  
+  event_key : {
+    type : Number
+  },
 
   event_status: {
     type: Number,
     enum: [0,1],    
     default :1
   },
+  
 
   venue_Date_and_time: [
     {
@@ -81,7 +84,7 @@ const eventSchema = new Schema({
         
       },
       date: {
-        type: Date,
+        type: String,
       
       },
       start_time: {
