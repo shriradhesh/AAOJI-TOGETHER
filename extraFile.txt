@@ -269,227 +269,107 @@ const userRespondToInvitedEvent = async (req, res) => {
 
 
 
-const fs = require('fs');
-const tf = require('@tensorflow/tfjs-node');
-const mobilenet = require('@tensorflow-models/mobilenet');
-const eventModel = require('./path-to-your-event-model');
-const userModel = require('./path-to-your-user-model');
-
-const recognizeImages = async (req, res) => {
-  try {
-    // Load your image files
-    const images = req.body.images; // Assuming images are sent in the request body
-
-    // Retrieve the user's profile image
-    const userId = req.user.id; // Assuming you have user authentication in place
-    const user = await userModel.findById(userId);
-    const userImage = fs.readFileSync(user.profileImage);
-
-    // Load the MobileNet model
-    const model = await mobilenet.load();
-
-    // Get features for the user's profile image
-    const userImageFeatures = await model.infer(tf.node.decodeImage(userImage), 'conv_preds');
-
-    // Initialize a counter for matched images
-    let matchingCount = 0;
-
-    // Loop through the provided event images
-    for (const eventImage of images) {
-      const otherImage = fs.readFileSync(eventImage); // Read other image files
-      const otherImageFeatures = await model.infer(tf.node.decodeImage(otherImage), 'conv_preds');
-
-      // Calculate cosine similarity or other matching metric
-      const similarity = tf.dot(userImageFeatures, otherImageFeatures).dataSync()[0];
-
-      // You may adjust the threshold as needed
-      const similarityThreshold = 0.8;
-
-      // Check if the similarity exceeds the threshold
-      if (similarity > similarityThreshold) {
-        matchingCount++;
-      }
-    }
-
-    // Return the matching count
-    res.status(200).json({
-      success: true,
-      message: 'Image recognition completed',
-      matching_count: matchingCount,
-    });
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({
-      success: false,
-      message: 'Internal server error',
-    });
-  }
-};
-
-module.exports = { recognizeImages };
-
-
-********************************************
-
-
-Add subEvent in event- 
-                           Method : POST
-                            Parameters : sub_event_title,venue_Name , 
-                                                        venue_location , date , start_time , end_time
-                            URL : http://192.168.1.43:6002/api/newVenue_Date_Time/:eventId
-
-
-
-{
-   "event_key": 2,
-   "title":"Holi party",
-   "description":"we conduct holi celebration function",
-   "venue_Date_and_time":[
-      {
-         "sub_event_title":"hello",
-         "venue_Name":"taj hotel",
-         "venue_location":"colaba , mumbai",
-         "date":"2024-02-12",
-         "start_time":"10:00:00",
-         "end_time":"13:00:00"
-      },
-      {
-         "sub_event_title":"hello1",
-         "venue_Name":"taj hotel",
-         "venue_location":"colaba , mumbai",
-         "date":"2024-02-12",
-         "start_time":"10:00:00",
-         "end_time":"13:00:00"
-      }
-   ]
-}
-
-
-
-
-
-
-
-const updateEvent = async (req, res) => {
-          try {
-              const eventId = req.params.eventId;
-              const { title, description, sub_event_title, venue_Name, venue_location, date, start_time, end_time ,images, venue_Date_and_time } = req.body;
-                    // Convert event_key to number if it's a string
-                  let event_key = req.body.event_key 
-                if (typeof event_key === 'string') {
-                  event_key = parseInt(event_key);
-              }
-              // Check for event existence
-              const existingEvent = await eventModel.findOne({ _id: eventId });
-              if (!existingEvent) {
-                  return res.status(400).json({
-                      success: false,
-                      eventExistanceMessage: 'Event does not exist'
-                  });
-              }
-                  // If images are provided, update the existing images array or add new images
-                  if (images) {
-                    existingEvent.images = existingEvent.images ? existingEvent.images.concat(images) : images;
-                }
-              
+       const sendInvitation = async (req, res) => {
+                        try {
+                            const { eventId } = req.params;
+                    
+                            // Find event
+                            const event = await eventModel.findOne({ _id: eventId }).populate('Guests');
+                            if (!event) {
+                                return res.status(400).json({
+                                    success: false,
+                                    eventExistanceMessage: 'Event not found',
+                                });
+                            }
+                           
+                        // Check for bus number
+                        const existInvitedEvent = await InvitedeventModel.findOne({ eventId });
+                
+                        if (existInvitedEvent) {
+                            return res.status(400).json({ success : true , message: 'you already invite Guests for these event ' });
+                        }
+                            // Create invitations object
+                            const invitation = {
+                                hostId: event.userId,
+                                eventId: eventId,
+                                hostName: event.userName,
+                                event_title: event.title,
+                                event_description: event.description,
+                                event_Type: event.event_Type,
+                                co_hosts: event.co_hosts,
+                                Guests: event.Guests,
+                                images: event.images,
+                                event_status: event.event_status,
+                                venue_Date_and_time: event.venue_Date_and_time,
+                                event_status: InvitedeventModel.schema.path('event_status').getDefault(),
+                            };
+                    
+                            // Populate Guests array with default status
+                            invitation.Guests = event.Guests.map(guest => ({
+                                Guest_Name: guest.Guest_Name,
+                                phone_no: guest.phone_no,
+                                status: 2, // Default status: 2 (pending)
+                            }));
+                    
+                            // Save invitation to the database
+                            await InvitedeventModel.create(invitation);
+                    
+                            for (const guest of event.Guests) {
+                                // Convert the phone number string to numeric format
+                                const phone_no_numeric = parseInt(guest.phone_no, 10);
+                                const formattedPhoneNumber = `+91${phone_no_numeric}`;
+                                const  message = `Hello, you are invited to ${event.title} by ${event.userName}. Receive updates about the event on the link: https://localhost.com`;
+                               
+                    
+                                // Use SMS Gateway Hub to send SMS
+                                await sendSMSUsingGatewayHub(formattedPhoneNumber, message);
+                            }
+                    
+                            res.status(200).json({
+                                success: true,
+                                successMessage: 'Invitation for the event stored successfully, and SMS sent to guests!',
+                            });
+                        } catch (error) {
+                            console.error('Error:', error.response ? error.response.data : error.message);
+                            res.status(500).json({
+                                success: false,
+                                serverErrorMessage: 'SERVER ERROR',
+                            });
+                        }
+                    };
+                    
+                    const sendSMSUsingGatewayHub = async (formattedPhoneNumber, message, apiKey = 'DfRvyBzYh02aalLlL4j9Zg', senderId = 'FESSMS') => {
+                      const gatewayHubApiUrl = 'https://www.smsgatewayhub.com/api/mt/SendSMS';
                   
-              // Update event details
-              if (title) {
-                  existingEvent.title = title;
-              }
-              if (description) {
-                  existingEvent.description = description;
-              }
-              
-              if (event_key === 1  ) {
-                  const venueArrayLength = existingEvent.venue_Date_and_time.length;
-      
-                  if (venueArrayLength === 1) {
-                      // Update the existing venue details
-                      const existingVenue = existingEvent.venue_Date_and_time[0];
-                      existingVenue.sub_event_title = sub_event_title;
-                      existingVenue.venue_Name = venue_Name;
-                      existingVenue.venue_location = venue_location;
-                      existingVenue.date = date;
-                      existingVenue.start_time = start_time;
-                      existingVenue.end_time = end_time;
-                  } else if (venueArrayLength === 0) {
-                      // Add a new venue
-                      existingEvent.venue_Date_and_time.push({
-                          sub_event_title,
-                          venue_Name,
-                          venue_location,
-                          date,
-                          start_time,
-                          end_time
-                      });
-                  } else {
-                      // Handle the case where venueArrayLength is greater than 1 (which should not happen)
-                      return res.status(400).json({
-                          success: false,
-                          errorMessage: 'Invalid venueArrayLength for event_key 1'
-                      });
-                  }
-      
-                  // Save the updated event back to the database
-                  await existingEvent.save();
-              } else if (event_key  === 2) {
-                 
-               
-
-                // If venue_Date_and_time is provided, process and set the details
-            if (venue_Date_and_time && Array.isArray(venue_Date_and_time)) {
-              existingEvent.venue_Date_and_time = [...existingEvent.venue_Date_and_time, ...venue_Date_and_time];
-          }
-          
-                await existingEvent.save();
-              } else {
-                  // Handle other event_key values if needed
-              }
-      
-              return res.status(200).json({
-                  success: true,
-                  successMessage: 'Event updated successfully'
-              });
-          } catch (error) {
-              console.error(error);
-              return res.status(500).json({
-                  success: false,
-                  serverErrorMessage: 'Server Error'
-              });
-          }
-      };
-
-
-
-
-
-const getAllCollections = async (req, res) => {
-  try {
-    // Fetch all collections from the bookmarkModel
-    const allCollections = await bookmarkModel.find({}, 'collections');
-
-    res.status(200).json({
-      success: true,
-      collections: allCollections.map((bookmark) => bookmark.collections),
-    });
-  } catch (error) {
-    console.error(error);
-    return res.status(500).json({
-      success: false,
-      message: 'There is a server error',
-    });
-  }
-};
-
-   
-
-
-
-
-
-
-
+                      try {
+                          // const encodedMessage = encodeURIComponent(message);
+                  
+                          const response = await axios.get(gatewayHubApiUrl, {
+                              headers: {
+                                  'Content-Type': 'application/x-www-form-urlencoded',
+                              },
+                              params: {
+                                  APIKey: apiKey,
+                                  senderid: senderId,
+                                  channel: 2,
+                                  DCS: 0,
+                                  flashsms: 0,
+                                  number: formattedPhoneNumber,
+                                  text: message,
+                                  route: 31,
+                                  EntityId: '1111111111111111111',
+                                  dlttemplateid: '1111111111111111111',
+                                  TelemarketerId: 123,
+                              },
+                          });
+                  
+                          console.log('SMS sent successfully:', response.data);
+                      } catch (error) {
+                          console.error('Error sending SMS:', error.response ? error.response.data : error.message);
+                          throw error;
+                      }
+                  };             
+                  
 
 
 
@@ -657,3 +537,136 @@ const deleteImage = async (req, res) => {
         });
     }
 };
+
+
+
+*******************************************************
+
+router.post('/toggle-like/:feedId/:userId', async (req, res) => {
+  try {
+    const { feedId, userId } = req.params;
+
+    // Check if feedId and userId are provided
+    if (!feedId || !userId) {
+      return res.status(400).json({
+        success: false,
+        message: 'FeedId and UserId are required',
+      });
+    }
+
+    // Check if the feed exists
+    const feed = await eventFeedModel.findById(feedId);
+    if (!feed) {
+      return res.status(404).json({
+        success: false,
+        message: 'Feed not found',
+      });
+    }
+
+    // Check if the user exists
+    const user = await userModel.findById(userId);
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: 'User not found',
+      });
+    }
+
+    // Check if the user has already liked the feed
+    const likedIndex = feed.feed_review.likes.indexOf(userId);
+    if (likedIndex !== -1) {
+      // User has already liked, so unlike
+      feed.feed_review.likes.splice(likedIndex, 1);
+    } else {
+      // User has not liked, so like
+      feed.feed_review.likes.push(userId);
+    }
+
+    // Save the updated feed
+    await feed.save();
+
+    return res.status(200).json({
+      success: true,
+      message: 'Toggle like/unlike successful',
+      isLiked: likedIndex === -1, // Indicates whether the user has liked or unliked
+    });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({
+      success: false,
+      message: 'Server error',
+    });
+  }
+});
+
+********************************************************
+
+
+// Inside your routes or controller file
+const viewFeed = async (req, res) => {
+  try {
+    const { feed_Id, userId } = req.params;
+
+    // check for feed_id required
+    if (!feed_Id) {
+      return res.status(400).json({
+        success: false,
+        message: 'Feed Id required',
+      });
+    }
+
+    if (!userId) {
+      return res.status(400).json({
+        success: false,
+        message: 'User Id required',
+      });
+    }
+
+    // check for feed
+    const feed = await eventFeedModel.findOne({ _id: feed_Id });
+
+    if (!feed) {
+      return res.status(404).json({
+        success: false,
+        message: 'Feed not exist',
+      });
+    }
+
+    // Check if the userId has already viewed this feed
+    const viewedUsers = feed.views.uniqueUsers || [];
+
+    if (!viewedUsers.includes(userId)) {
+      // Increment the view count and add userId to the viewedUsers array
+      feed.feed_review.views += 1;
+      feed.views.uniqueUsers = [...viewedUsers, userId];
+      await feed.save();
+
+      return res.status(200).json({
+        success: true,
+        message: 'View counted successfully',
+        views: feed.feed_review.views,
+      });
+    } else {
+      return res.status(200).json({
+        success: false,
+        message: 'User has already viewed this feed',
+        views: feed.feed_review.views,
+      });
+    }
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({
+      success: false,
+      message: 'Server error',
+    });
+  }
+};
+
+
+work on feed section of festabash ( create like , comments , and views apI
+
+work on user section ( create user , login user , change password , update user) in sys learn 
+
+working on mtn momo ( token generation)
+
+

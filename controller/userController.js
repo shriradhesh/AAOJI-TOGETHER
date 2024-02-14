@@ -13,6 +13,7 @@ const ExcelJs = require('exceljs')
 const eventImageModel = require('../models/eventImages')
 const contactUs = require('../models/contactUs')
 const InvitedeventModel = require('../models/Invitation')
+const eventFeedModel = require('../models/eventFeedModel')
 
 const Admin = require('../models/AdminModel')
 const faqModel = require('../models/FaQ')
@@ -26,6 +27,7 @@ const authToken = '45a257477425131532341d7c50154269';
 const twilioPhone  = '+17078202575'; 
 const twilioClient = new twilio(accountSid, authToken);
 const axios = require('axios');
+const { TrustProductsEntityAssignmentsPage } = require('twilio/lib/rest/trusthub/v1/trustProducts/trustProductsEntityAssignments')
                                 /* API for users */
     // API for user signup
      
@@ -119,6 +121,9 @@ const axios = require('axios');
               user.profileImage = profile;
               await user.save();
       
+              // Update user profile image in eventFeedModel
+              await eventFeedModel.updateMany({ userId: id }, { $set: { user_profileImage: profile } });
+      
               return res.status(200).json({
                 success: true,
                 message: 'Profile image and information updated successfully',
@@ -127,6 +132,17 @@ const axios = require('axios');
               // User does not have a profile image, create it
               user.profileImage = profile;
               await user.save();
+      
+              // Update user profile image in eventFeedModel
+              const feed_user = await eventFeedModel.findOne({ userId: id });
+              if (!feed_user) {
+                return res.status(400).json({
+                  success: false,
+                  message: 'User not found in eventFeedModel',
+                });
+              }
+              feed_user.user_profileImage = profile;
+              await feed_user.save();
       
               return res.status(200).json({
                 success: true,
@@ -147,6 +163,7 @@ const axios = require('axios');
           res.status(500).json({ success: false, message: 'Error while updating user profile' });
         }
       };
+      
       
   // Api for get particular user details by there id
                const getUser = async( req ,res)=>{
@@ -175,6 +192,7 @@ const axios = require('axios');
                 {
                   return res.status(200).json({
                                   success : true ,
+                                  message : 'user Details' ,
                                   user_details : user
                   })
                 }
@@ -373,7 +391,7 @@ const axios = require('axios');
             await event.save()
             return res.status(200).json({ 
                                   success : true , 
-                                message : `venue added successfully in eventId : ${eventId}`})
+                                message : `sub event added successfully`})
             } catch (error) {
                 return res.status(500).json({
                     success : false ,
@@ -425,7 +443,7 @@ const axios = require('axios');
                                       await event.save();
                                       return res.status(200).json({
                                           success: true,
-                                          message: `Co-host added successfully in eventId: ${eventId}`
+                                          message: `Co-host added successfully`
                                       });
                                   } catch (error) {
                                       console.error(error);
@@ -449,7 +467,7 @@ const axios = require('axios');
                                   {
                                     return res.status(400).json({
                                                      success : false ,
-                                                      message : `event : ${eventId} not found`
+                                                      message : `event  not found`
                                     })
                                   }                                   
                                                                       
@@ -474,7 +492,7 @@ const axios = require('axios');
 
                                   res.status(200).json({
                                     success : true,
-                                    message : `co-host deleted successfully in eventId : ${eventId}`
+                                    message : `co-host deleted successfully`
                                     })
 
                                 } catch (error) {
@@ -574,9 +592,8 @@ const axios = require('axios');
                               await existEvent.save()
                               return res.status(200).json({
                                                           success : true ,
-                                                          message : `SubEvent edited successfully for event : ${eventId}`
-                              })
-                          
+                                                          message : `SubEvent edited successfully `
+                              })                          
                                   } catch (error) {
                                     
                                       return res.status(500).json({
@@ -621,7 +638,7 @@ const axios = require('axios');
 
                                     res.status(200).json({
                                                       success : true,
-                                                      message : `SubEvent deleted successfully in eventId : ${eventId}`
+                                                      message : `SubEvent deleted successfully`
                                     })
 
 
@@ -676,7 +693,7 @@ const axios = require('axios');
 
                                   return res.status(200).json({
                                       success: true,
-                                      message: `Guest added successfully in eventId: ${eventId}`,
+                                      message: `Guest added successfully`,
                                   });
                                 }
                               } catch (error) {
@@ -824,7 +841,7 @@ const axios = require('axios');
 
                           res.status(200).json({
                             success : true,
-                            message : `Guest deleted successfully in eventId : ${eventId}`
+                            message : `Guest deleted successfully`
                             })
 
                         } catch (error) {
@@ -851,6 +868,7 @@ const axios = require('axios');
                   
                       // Check if collectionName already exists in bookmark table
                       const existingCollection = await bookmarkModel.findOne({
+                        eventId : eventId,
                         'bookmark_Collection.name': collectionName,
                       });
                   
@@ -859,7 +877,8 @@ const axios = require('axios');
                       if (!existingCollection) {
                         // If collectionName does not exist in bookmark table, create a new collection
                         const newCollection = new bookmarkModel({
-                          bookmark_Collection: [{ name: collectionName, entries: [] }],
+                          eventId : eventId ,
+                          bookmark_Collection: [{ name: collectionName, bookmark_entries: [] }],
                         });
                   
                         // Check event existence
@@ -879,7 +898,7 @@ const axios = require('axios');
                         );
                   
                         // Set the entries array directly with uniqueGuests values
-                        newCollection.bookmark_Collection[0].entries = uniqueGuests.map((guest) => ({
+                        newCollection.bookmark_Collection[0].bookmark_entries = uniqueGuests.map((guest) => ({
                           Guest_Name: guest.Guest_Name,
                           phone_no: guest.phone_no,
                           status: 1,
@@ -902,12 +921,12 @@ const axios = require('axios');
                         ).map((guestId) =>
                           event.Guests.find((guest) => guest._id.toString() === guestId)
                         );                  
-                        // Update the bookmark with unique entries using $addToSet
+                        // Update the bookmark with unique bookmark_entries using $addToSet
                         await bookmarkModel.updateOne(
-                          { 'bookmark_Collection.name': collectionName },
+                          { 'eventId': eventId , 'bookmark_Collection.name': collectionName },
                           {
                             $addToSet: {
-                              'bookmark_Collection.$.entries': {
+                              'bookmark_Collection.$.bookmark_entries': {
                                 $each: uniqueGuests.map((guest) => ({
                                   Guest_Name: guest.Guest_Name,
                                   phone_no: guest.phone_no,
@@ -920,6 +939,7 @@ const axios = require('axios');
                   
                         // Fetch the updated collection
                         updatedCollection = await bookmarkModel.findOne({
+                          'eventId' : eventId,
                           'bookmark_Collection.name': collectionName,
                         });
                       }
@@ -927,6 +947,7 @@ const axios = require('axios');
                       res.status(200).json({
                         success: true,
                         message: 'All guests added to bookmark as favorites',
+                        eventId : eventId,
                         collection_details: updatedCollection.bookmark_Collection.find(
                           (collection) => collection.name === collectionName
                         ),
@@ -940,38 +961,36 @@ const axios = require('axios');
                     }
                   };
                   
-  
-  
-                          
+                  
           // delete a particular guest in a collection in bookMark model
           const deleteGuestInCollection = async (req, res) => {
             try {
+             
+              const collection_id = req.params.collection_id;
               const guestId = req.params.guestId;
-              const collectionName = req.body.collectionName;
-          
-              // Check for the presence of collectionName
-              if (!collectionName) {
+              // Check for the presence of collection_id
+              if (!collection_id) {
                 return res.status(400).json({
                   success: false,
-                  message: 'Please provide a collectionName',
+                  message: 'Please provide a collection_id',
                 });
               }
           
               // Find the collection with the specified name
               const collection = await bookmarkModel.findOne({
-                'bookmark_Collection.name': collectionName,
+                _id : collection_id
               });
           
               // Check if the collection exists
               if (!collection) {
                 return res.status(400).json({
                   success: false,
-                  message: `Collection not found: ${collectionName}`,
+                  message: `Collection not found`,
                 });
               }
           
-              // Find the index of the guest in the entries array
-              const guestIndex = collection.bookmark_Collection[0].entries.findIndex(
+              // Find the index of the guest in the bookmark_entries array
+              const guestIndex = collection.bookmark_Collection[0].bookmark_entries.findIndex(
                 (entry) => entry._id.toString() === guestId
               );
           
@@ -979,19 +998,19 @@ const axios = require('axios');
               if (guestIndex === -1) {
                 return res.status(400).json({
                   success: false,
-                  message: `Guest not found in collection: ${collectionName}`,
+                  message: `Guest not found in collection`,
                 });
               }
           
-              // Remove the guest from the entries array
-              collection.bookmark_Collection[0].entries.splice(guestIndex, 1);
+              // Remove the guest from the bookmark_entries array
+              collection.bookmark_Collection[0].bookmark_entries.splice(guestIndex, 1);
           
               // Save the updated collection
               await collection.save();
           
               res.status(200).json({
                 success: true,
-                message: `Guest deleted successfully from collection: ${collectionName}`,
+                message: `Guest deleted successfully from collection`,
               });
             } catch (error) {
               console.error(error);
@@ -1020,7 +1039,7 @@ const axios = require('axios');
                                        {
                                         return res.status(200).json({
                                                                    success : true,
-                                                                   message : `Event`,
+                                                                   message : `Event Details`,
                                                                    event_details : event
                                         })
                                        } 
@@ -1392,109 +1411,110 @@ const axios = require('axios');
                         }
                       }         
   
-                     
+         // APi for send Invitation to event Guests            
+         const sendInvitation = async (req, res) => {
+          try {
+              const { eventId } = req.params;
+      
+              // Find event
+              const event = await eventModel.findOne({ _id: eventId }).populate('Guests');
+              if (!event) {
+                  return res.status(400).json({
+                      success: false,
+                      eventExistanceMessage: 'Event not found',
+                  });
+              }
+             
+          // Check for bus number
+          const existInvitedEvent = await InvitedeventModel.findOne({ eventId });
+  
+          if (existInvitedEvent) {
+              return res.status(400).json({ success : true , message: 'you already invite Guests for these event ' });
+          }
+              // Create invitations object
+              const invitation = {
+                  hostId: event.userId,
+                  eventId: eventId,
+                  hostName: event.userName,
+                  event_title: event.title,
+                  event_description: event.description,
+                  event_Type: event.event_Type,
+                  co_hosts: event.co_hosts,
+                  Guests: event.Guests,
+                  images: event.images,
+                  event_status: event.event_status,
+                  venue_Date_and_time: event.venue_Date_and_time,
+                  event_status: InvitedeventModel.schema.path('event_status').getDefault(),
+              };
+      
+              // Populate Guests array with default status
+              invitation.Guests = event.Guests.map(guest => ({
+                  Guest_Name: guest.Guest_Name,
+                  phone_no: guest.phone_no,
+                  status: 2, // Default status: 2 (pending)
+              }));
+      
+              // Save invitation to the database
+              await InvitedeventModel.create(invitation);
+      
+              for (const guest of event.Guests) {
+                  // Convert the phone number string to numeric format
+                  const phone_no_numeric = parseInt(guest.phone_no, 10);
+                  const formattedPhoneNumber = `+91${phone_no_numeric}`;
+                  const  message = `Hello, you are invited to ${event.title} by ${event.userName}. Receive updates about the event on the link: https://localhost.com`;
+                 
+      
+                  // Use SMS Gateway Hub to send SMS
+                  await sendSMSUsingGatewayHub(formattedPhoneNumber, message);
+              }
+      
+              res.status(200).json({
+                  success: true,
+                  successMessage: 'Invitation for the event stored successfully, and SMS sent to guests!',
+              });
+          } catch (error) {
+              console.error('Error:', error.response ? error.response.data : error.message);
+              res.status(500).json({
+                  success: false,
+                  serverErrorMessage: 'SERVER ERROR',
+              });
+          }
+      };
+      
+      const sendSMSUsingGatewayHub = async (formattedPhoneNumber, message, apiKey = 'DfRvyBzYh02aalLlL4j9Zg', senderId = 'FESSMS') => {
+        const gatewayHubApiUrl = 'https://www.smsgatewayhub.com/api/mt/SendSMS';
+    
+        try {
+            // const encodedMessage = encodeURIComponent(message);
+    
+            const response = await axios.get(gatewayHubApiUrl, {
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                },
+                params: {
+                    APIKey: apiKey,
+                    senderid: senderId,
+                    channel: 2,
+                    DCS: 0,
+                    flashsms: 0,
+                    number: formattedPhoneNumber,
+                    text: message,
+                    route: 31,
+                    EntityId: '1111111111111111111',
+                    dlttemplateid: '1111111111111111111',
+                    TelemarketerId: 123,
+                },
+            });
+    
+            console.log('SMS sent successfully:', response.data);
+        } catch (error) {
+            console.error('Error sending SMS:', error.response ? error.response.data : error.message);
+            throw error;
+        }
+    };             
+    
 
-                      const sendInvitation = async (req, res) => {
-                        try {
-                            const { eventId } = req.params;
-                    
-                            // Find event
-                            const event = await eventModel.findOne({ _id: eventId }).populate('Guests');
-                            if (!event) {
-                                return res.status(400).json({
-                                    success: false,
-                                    eventExistanceMessage: 'Event not found',
-                                });
-                            }
-                           
-                        // Check for bus number
-                        const existInvitedEvent = await InvitedeventModel.findOne({ eventId });
-                
-                        if (existInvitedEvent) {
-                            return res.status(400).json({ success : true , message: 'you already invite Guests for these event ' });
-                        }
-                            // Create invitations object
-                            const invitation = {
-                                hostId: event.userId,
-                                eventId: eventId,
-                                hostName: event.userName,
-                                event_title: event.title,
-                                event_description: event.description,
-                                event_Type: event.event_Type,
-                                co_hosts: event.co_hosts,
-                                Guests: event.Guests,
-                                images: event.images,
-                                event_status: event.event_status,
-                                venue_Date_and_time: event.venue_Date_and_time,
-                                event_status: InvitedeventModel.schema.path('event_status').getDefault(),
-                            };
-                    
-                            // Populate Guests array with default status
-                            invitation.Guests = event.Guests.map(guest => ({
-                                Guest_Name: guest.Guest_Name,
-                                phone_no: guest.phone_no,
-                                status: 2, // Default status: 2 (pending)
-                            }));
-                    
-                            // Save invitation to the database
-                            await InvitedeventModel.create(invitation);
-                    
-                            for (const guest of event.Guests) {
-                                // Convert the phone number string to numeric format
-                                const phone_no_numeric = parseInt(guest.phone_no, 10);
-                                const formattedPhoneNumber = `+91${phone_no_numeric}`;
-                                const  message = `Hello, you are invited to ${event.title} by ${event.userName}. Receive updates about the event on the link: https://localhost.com`;
-                               
-                    
-                                // Use SMS Gateway Hub to send SMS
-                                await sendSMSUsingGatewayHub(formattedPhoneNumber, message);
-                            }
-                    
-                            res.status(200).json({
-                                success: true,
-                                successMessage: 'Invitation for the event stored successfully, and SMS sent to guests!',
-                            });
-                        } catch (error) {
-                            console.error('Error:', error.response ? error.response.data : error.message);
-                            res.status(500).json({
-                                success: false,
-                                serverErrorMessage: 'SERVER ERROR',
-                            });
-                        }
-                    };
-                    
-                    const sendSMSUsingGatewayHub = async (formattedPhoneNumber, message, apiKey = 'DfRvyBzYh02aalLlL4j9Zg', senderId = 'FESSMS') => {
-                      const gatewayHubApiUrl = 'https://www.smsgatewayhub.com/api/mt/SendSMS';
-                  
-                      try {
-                          // const encodedMessage = encodeURIComponent(message);
-                  
-                          const response = await axios.get(gatewayHubApiUrl, {
-                              headers: {
-                                  'Content-Type': 'application/x-www-form-urlencoded',
-                              },
-                              params: {
-                                  APIKey: apiKey,
-                                  senderid: senderId,
-                                  channel: 2,
-                                  DCS: 0,
-                                  flashsms: 0,
-                                  number: formattedPhoneNumber,
-                                  text: message,
-                                  route: 31,
-                                  EntityId: '1111111111111111111',
-                                  dlttemplateid: '1111111111111111111',
-                                  TelemarketerId: 123,
-                              },
-                          });
-                  
-                          console.log('SMS sent successfully:', response.data);
-                      } catch (error) {
-                          console.error('Error sending SMS:', error.response ? error.response.data : error.message);
-                          throw error;
-                      }
-                  };             
-                  
+
            
   
   // API for get InvitedEvent of user
@@ -1616,8 +1636,6 @@ const axios = require('axios');
         // Update the images with the new one(s) or create a new one if it doesn't exist
         existingEvent.images = images.length > 0 ? images : undefined;
       }
-  
-        
             // Update event details
             if (title) {
               existingEvent.title = title;
@@ -1677,8 +1695,7 @@ const axios = require('axios');
               // Save the updated event back to the database
               await existingEvent.save();
             } 
-            
-            
+
             else if (event_key === 2) {
               // Initialize venue_details as an empty array
               let venue_details = [];
@@ -1689,8 +1706,6 @@ const axios = require('axios');
                   venue_details = JSON.parse(venue_Date_and_time);
                 }
               }
-            
-             
               // Push multiple data at a time to venue_Date_and_time array
               existingEvent.venue_Date_and_time.push(...venue_details);
               existingEvent.event_key = event_key
@@ -2048,7 +2063,7 @@ const axios = require('axios');
                   if(!event.venue_Date_and_time || !Array.isArray(event.venue_Date_and_time))
                   {
                     return res.status(400).json({ success : false ,
-                                                  message : "date and time array not found in the route"})
+                                                  message : "date and time array not found in the Event"})
                   }
 
                 // Check for venueIndex
@@ -2160,69 +2175,66 @@ const axios = require('axios');
         });
     }
 };
-
-
   
   
   // Api for get all Albums
   const getAllAlbum = async (req, res) => {
     try {
-      const eventId = req.params.eventId;
-  
-      if (!eventId) {
-        return res.status(200).json({
-          success: false,
-          eventIdRequired: 'Event Id required',
-        });
-      }
-  
-      // Check for event existence in event_Image_Model
-      const event = await eventImageModel.findOne({ eventId });
-  
-      if (!event) {
-        return res.status(200).json({
-          success: false,
-          eventExistanceMessage: 'Event not found ',
-        });
-      }
-  
-      // Fetch all Albums from the event_Image_Model
-      const allAlbums = await eventImageModel.find({ eventId }, 'images');
-  
-      if (!allAlbums || allAlbums.length === 0) {
-        return res.status(200).json({
-          success: false,
-          existanceMessage: 'No Album found',
-        });
-      }
-  
-      // Extract and merge all 'Images' arrays into a single array
-      const mergedSubArray = allAlbums.reduce((acc, album) => {
-        return acc.concat(album.images);
-      }, []);
-  
-      // Extract the first index value of 'Image_entries' as a string
-      const simplifiedAlbums = mergedSubArray.map((album) => {
-        return {
-          album_id : album._id,
-          album_name: album.album_name,
-          first_image: album.image_entries.length > 0 ? album.image_entries[0] : null,
-        };
-      });
-  
-      res.status(200).json({
-        success: true,
-        success_message: 'All Albums with details',
-        albums: simplifiedAlbums,
-      });
+        const eventId = req.params.eventId;
+
+        if (!eventId) {
+            return res.status(200).json({
+                success: false,
+                eventIdRequired: 'Event Id required',
+            });
+        }
+
+        // Check for event existence in event_Image_Model
+        const event = await eventImageModel.findOne({ eventId });
+
+        if (!event) {
+            return res.status(200).json({
+                success: false,
+                message: 'Event not found ',
+            });
+        }
+
+        // Fetch all Albums from the event_Image_Model
+        const allAlbums = await eventImageModel.find({ eventId });
+
+        if (!allAlbums || allAlbums.length === 0) {
+            return res.status(200).json({
+                success: false,
+                message: 'No Album found',
+            });
+        } else {
+            const albumsDetails = allAlbums.map(album => {
+              
+                return {
+                    album_id: album._id,
+                    album_name: album.images[0].album_name,
+                    first_image: album.images[0].image_entries.length > 0
+                    ? album.images[0].image_entries[0].image_path
+                    : null
+                };
+            });
+
+            res.status(200).json({
+                success: true,
+                message: 'All Albums with details',
+                allAlbums: albumsDetails,
+            });
+        }
+
     } catch (error) {
-      console.error(error);
-      return res.status(500).json({
-        success: false,
-        serverError: 'Server error',
-      });
+        console.error(error);
+        return res.status(500).json({
+            success: false,
+            serverError: 'Server error',
+        });
     }
-  };
+};
+
   
   
   // get particular Album
@@ -2245,7 +2257,7 @@ const axios = require('axios');
         if (!event) {
             return res.status(200).json({
                 success: false,
-                eventExistanceMessage: 'event not found',
+                message: 'event not found',
             });
         }
 
@@ -2261,18 +2273,17 @@ const axios = require('axios');
         if (!album) {
             return res.status(200).json({
                 success: false,
-                albumExistanceMessage: 'Album not found',
+                message: 'Album not found',
             });
         } else {
-            const { album_name, _id: album_id, images } = album;
-            const { _id: image_array_id, image_entries } = images[0];
+            const {  _id: album_id, images } = album;
+            const { _id: image_array_id, image_entries , album_name} = images[0];
 
             return res.status(200).json({
                 success: true,
-                successMessage: 'Album Details',
+                message: 'Album Details',
                 album_name,
-                album_id,
-                image_array_id,
+                album_id,               
                 image_entries,
             });
         }
@@ -2284,23 +2295,16 @@ const axios = require('axios');
         });
     }
 };
-
-
-
-  
-
           // Api for add Images in Album 
           const addImages_in_Album = async (req, res) => {
-            try {
+            try {     
                 const album_id = req.params.album_id;
-                const image_arrayId = req.params.image_arrayId;
         
-                // Check for album id and image array id
-                if (!album_id || !image_arrayId) {
+                // Check for album id
+                if (!album_id) {
                     return res.status(200).json({
                         success: false,
                         albumIdRequired: 'Album Id Required',
-                        image_arrayIdRequired: 'Image Array Id Required',
                     });
                 }
         
@@ -2310,51 +2314,55 @@ const axios = require('axios');
                 if (!album) {
                     return res.status(200).json({
                         success: false,
-                        albumExistanceMessage: 'Album not found',
+                        message: 'Album not found',
                     });
                 }
+        // Add multiple images as objects with unique ids
+        // const imageObjects = [];
         
-                // Find specified Image array within album
-                const imageArray = album.images.id(image_arrayId);
-        
-                if (!imageArray) {
-                    return res.status(200).json({
-                        success: false,
-                        image_array_existance_message: 'Image array not found in album',
-                    });
-                }
-        
-                // Add multiple images as objects with unique ids
-                const imageObjects = [];
-        
-                if (req.files && req.files.length > 0) {
-                    req.files.forEach(file => {
-                        const imageObject = {
-                            image_path: file.filename,
-                        };
-                        imageObjects.push(imageObject);
-                    });
-                }
-        
-                // Add image objects to image_entries array
-                imageArray.image_entries.push(...imageObjects);
-        
-                // Save the updated album
-                await album.save();
-        
-                return res.status(200).json({
-                    success: true,
-                    success_message: 'Images uploaded successfully',
-                    image_objects: imageObjects,
-                });
-            } catch (error) {
-                console.error(error);
-                return res.status(500).json({
-                    success: false,
-                    serverErrorMessage: 'Server Error',
-                });
-            }
-        };
+        // if (req.files && req.files.length > 0) {
+        //     req.files.forEach(file => {
+        //         const imageObject = {
+        //             image_path: file.filename,
+        //         };
+        //         imageObjects.push(imageObject);
+        //     });
+        // }
+
+       
+        // const defaultImageArray = album.images[0];
+
+        // // Add image objects to image_entries array
+        // defaultImageArray.image_entries.push(...imageObjects);
+
+
+        // upload single 
+        const imageObject = {
+          image_path: req.file.filename, 
+       };
+
+      const defaultImageArray = album.images[0];
+
+      // Add image object to image_entries array
+      defaultImageArray.image_entries.push(imageObject);
+
+        // Save the updated album
+        await album.save();
+
+        return res.status(200).json({
+            success: true,
+            message: 'Images uploaded successfully',
+            image_objects: imageObject,
+        });
+    } catch (error) {
+        console.error(error);
+        return res.status(500).json({
+            success: false,
+            serverErrorMessage: 'Server Error',
+        });
+    }
+};
+
         
     // Api for rename Album
             const rename_album = async(req ,res)=>{
@@ -2366,7 +2374,7 @@ const axios = require('axios');
                   {
                     return res.status(200).json({
                                  success : false ,
-                                 albumIdRequired : 'album Id required'
+                                 message : 'album Id required'
                     })
                   }
 
@@ -2376,7 +2384,7 @@ const axios = require('axios');
               {
                 return res.status(200).json({
                             success : false ,
-                            albumExistanceMessage : 'album not exist'
+                            message : 'album not exist'
                 })
               }
               album.images[0].album_name = new_album_name;
@@ -2384,7 +2392,7 @@ const axios = require('axios');
 
               return res.status(200).json({
                        success : true ,
-                       success_message : 'album Renamed Successfully'
+                       message : 'album Renamed Successfully'
               })
               } catch (error) {
                 return res.status(500).json({
@@ -2403,7 +2411,7 @@ const axios = require('axios');
                         {
                           return res.status(200).json({
                                        success : false ,
-                                       albumIdRequired : 'album Id Required'
+                                       message : 'album Id Required'
                           })
                         }
 
@@ -2414,14 +2422,14 @@ const axios = require('axios');
                         {
                           return res.status(200).json({
                                       success : false ,
-                                      albumExistanceMessage : 'album not exist'
+                                      message : 'album not exist'
                           })
                         }
                         else
                         {
                           return res.status(200).json({
                                            success : true,
-                                           success_message : 'album deleted successfully'
+                                           message : 'album deleted successfully'
                           })
                         }
                   } catch (error) {
@@ -2483,7 +2491,7 @@ const axios = require('axios');
                                     {
                                       return res.status(200).json({
                                           success : false ,
-                                          imageExistanceMessage :'image not found'
+                                          message :'image not found'
                                       })
                                     }
 
@@ -2491,7 +2499,7 @@ const axios = require('axios');
 
                                        return res.status(200).json({
                                              success : true,
-                                             success_message : 'Image Deleted successfully'
+                                             message : 'Image Deleted successfully'
                                        })
                             }
                              catch (error) {
@@ -2501,6 +2509,712 @@ const axios = require('axios');
                               })
                             }
                           }
+
+
+        // Api for get event according to date
+
+       
+        const { parse, format, eachDayOfInterval } = require('date-fns');
+
+        const get_Event_on_date = async (req, res) => {
+          try {
+              const userId = req.params.userId;
+              const { month, year, dates } = req.body;
+      
+              // Check for userId
+              if (!userId) {
+                  return res.status(200).json({
+                      success: false,
+                      userId_required: 'userId required',
+                  });
+              }
+      
+              const user = await userModel.findOne({ _id: userId });
+              if (!user) {
+                  return res.status(200).json({
+                      success: false,
+                      userExistanceMessage: 'user not found',
+                  });
+              }
+      
+              const phone_no = user.phone_no;
+      
+              if (dates && month && year) {
+                  const parsedDate = parse(`${month} ${year}`, 'MMM yyyy', new Date());
+                  const startDate = new Date(parsedDate.getFullYear(), parsedDate.getMonth(), 1);
+                  const endDate = new Date(parsedDate.getFullYear(), parsedDate.getMonth() + 1, 0);
+                  const allDatesInMonth = eachDayOfInterval({ start: startDate, end: endDate });
+      
+                  const eventDetails = [];
+                  const created_event_Details = [];
+                  const invited_event_details = [];
+      
+                  for (const date of allDatesInMonth) {
+                      const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+                      const formattedDate = `${date.getDate()} ${months[date.getMonth()]}, ${date.getFullYear()}`;
+      
+                      // Check if the current date is the specified date
+                      if (formattedDate === dates) {
+                          const created_events = await eventModel.find({
+                              userId: userId,
+                              'venue_Date_and_time.date': formattedDate,
+                          });
+                          var dateObj = new Date(formattedDate);
+
+                        // Extract year, month, and day from the date object
+                        var year1 = dateObj.getFullYear();
+                        var month1 = (dateObj.getMonth() + 1).toString().padStart(2, '0'); // Adding 1 to month because JavaScript months are zero-based
+                        var day1 = dateObj.getDate().toString().padStart(2, '0');
+
+                        // Form the desired date string in the format "YYYY-MM-DD"
+                        var formattedDates = year1 + "-" + month1 + "-" + day1;
+                          const invitedEvents = await InvitedeventModel.find({
+                              'Guests.phone_no': phone_no,
+                              'venue_Date_and_time.date': formattedDates,
+                          });
+      
+                          created_event_Details.push(...created_events);
+                          invited_event_details.push(...invitedEvents);
+      
+                          eventDetails.push({
+                              date: formattedDate,
+                              created_eventCount: created_events.length,
+                              invited_eventCount: invitedEvents.length,
+                          });
+                      } else {
+                          // If the current date is not the specified date, push an empty entry
+                          eventDetails.push({
+                              date: formattedDate,
+                              created_eventCount: 0,
+                              invited_eventCount: 0,
+                          });
+                      }
+                  }
+      
+                  return res.status(200).json({
+                      success: true,
+                      message: 'Event Details',
+                      eventDetails: eventDetails,
+                      created_event_Details: created_event_Details,
+                      invited_event_details: invited_event_details,
+                  });
+              } else if (month && year) {
+                  // Handle logic for monthly events
+                  const parsedDate = parse(`${month} ${year}`, 'MMM yyyy', new Date());
+                  const startDate = new Date(parsedDate.getFullYear(), parsedDate.getMonth(), 1);
+                  const endDate = new Date(parsedDate.getFullYear(), parsedDate.getMonth() + 1, 0);
+                  const allDatesInMonth = eachDayOfInterval({ start: startDate, end: endDate });
+      
+                  const eventDetails = [];
+                  const created_event_Details = [];
+                  const invited_event_details = [];
+      
+                  for (const date of allDatesInMonth) {
+                      const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+                      const formattedDate = `${date.getDate()} ${months[date.getMonth()]}, ${date.getFullYear()}`;
+      
+                      const events = await eventModel.find({
+                          userId: userId,
+                          'venue_Date_and_time.date': formattedDate,
+                      });
+                        var dateObj = new Date(formattedDate);
+
+                      // Extract year, month, and day from the date object
+                      var year1 = dateObj.getFullYear();
+                      var month1 = (dateObj.getMonth() + 1).toString().padStart(2, '0'); // Adding 1 to month because JavaScript months are zero-based
+                      var day1 = dateObj.getDate().toString().padStart(2, '0');
+
+                      // Form the desired date string in the format "YYYY-MM-DD"
+                      var formattedDates = year1 + "-" + month1 + "-" + day1;
+                     
+                      const invitedEvents = await InvitedeventModel.find({
+                          'Guests.phone_no': phone_no,
+                          'venue_Date_and_time.date': formattedDates,
+                      });
+      
+                      created_event_Details.push(...events);
+                      invited_event_details.push(...invitedEvents);
+      
+                      eventDetails.push({
+                          date: formattedDate,
+                          created_eventCount: events.length,
+                          invited_eventCount: invitedEvents.length,
+                      });
+                  }
+      
+                  return res.status(200).json({
+                      success: true,
+                      message: 'Event Details',
+                      eventDetails: eventDetails,
+                      created_event_Details: created_event_Details,
+                      invited_event_details: invited_event_details,
+                  });
+              } else {
+                  // Handle case where neither date nor month/year is provided
+                  return res.status(200).json({
+                      success: false,
+                      date_required: 'date or month and year are required',
+                  });
+              }
+          } catch (error) {
+              console.error(error);
+              return res.status(500).json({
+                  success: false,
+                  message: 'Server error',
+              });
+          }
+      };
+      
+
+      
+
+      // APi for get event on month
+
+      // const { parse, format, eachDayOfInterval } = require('date-fns');
+
+      const getEventsByMonth = async (req, res) => {
+          try {
+              const userId = req.params.userId;
+              const { month, year  } = req.query;
+      
+              // Check for month and year
+              if (!month || !year) {
+                  return res.status(200).json({
+                      success: false,
+                      date_required: 'Month and year are required',
+                  });
+              }
+      
+              if (!userId) {
+                  return res.status(200).json({
+                      success: false,
+                      userId_required: 'userId required',
+                  });
+              }
+      
+              const user = await userModel.findOne({ _id: userId });
+      
+              if (!user) {
+                  return res.status(200).json({
+                      success: false,
+                      userExistanceMessage: 'User not found',
+                  });
+              }
+      
+              const phone_no = user.phone_no;
+      
+              // Parse the input month and year
+              const parsedDate = parse(`${month} ${year}`, 'MMM yyyy', new Date());
+              
+              // Calculate the start and end dates for the month
+              const startDate = new Date(parsedDate.getFullYear(), parsedDate.getMonth() , 1);
+              const endDate = new Date(parsedDate.getFullYear(), parsedDate.getMonth() + 1, 0);
+      
+              // Generate an array of all dates in the month
+              const allDatesInMonth = eachDayOfInterval({ start: startDate, end: endDate });
+      
+              // Fetch created events and invited events for each date in the month
+              const eventDetails = {};
+      
+              for (const date of allDatesInMonth) {
+                  const formattedDate = format(date, 'yyyy-MM-dd');
+                  
+                  const events = await eventModel.find({
+                      userId: userId,
+                      'venue_Date_and_time.date': formattedDate,
+                  });
+      
+                  const invitedEvents = await InvitedeventModel.find({
+                      'Guests.phone_no': phone_no,
+                      'venue_Date_and_time.date': formattedDate,
+                  });
+      
+                  eventDetails[formattedDate] = {
+                      created_event_Details: events || [],
+                      invited_event_details: invitedEvents || [], 
+                      created_eventCount : (events || []).length,
+                      invited_eventCount :  (invitedEvents || []).length
+                      
+                  };
+              }
+      
+              return res.status(200).json({
+                  success: true,
+                  message: 'Event Details',
+                  eventDetails: eventDetails,
+              });
+      
+          } catch (error) {
+              console.error(error);
+              return res.status(500).json({
+                  success: false,
+                  message: 'Server error',
+              });
+          }
+      };
+      
+      
+
+                                                  /* Event Feed Section */
+      // Api for create  feed in event
+
+      const create_feed = async (req, res) => {
+        try {
+          const { eventId , userId } = req.params;
+          const { feed_description } = req.body;
+      
+          // check for eventId 
+          if (!eventId) {
+            return res.status(200).json({
+              success: false,
+              message: 'Event Id required'
+            });
+          }
+      
+          // check for eventId 
+          if (!eventId) {
+            return res.status(200).json({
+              success: false,
+              message: 'Event Id required'
+            });
+          }
+      
+          // check for event Existence
+          const event = await eventModel.findOne({ _id: eventId });
+          if (!event) {
+            return res.status(200).json({
+              success: false,
+              message: 'Event not found'
+            });
+          }   
+        
+
+          //check for user
+         const user = await userModel.findOne({
+                      _id: userId
+         })
+           const user_profileImage = user.profileImage
+           const userName =  user.fullName
+      
+          // check for feed description field
+          if (!feed_description) {
+            return res.status(200).json({
+              success: false,
+              message: 'Feed description required'
+            });
+          }
+      
+          // Initialize the review section with default values
+          const defaultReview = {
+            likes: 0,
+            comments: [],
+            views: 0
+          };
+      
+          // image upload for post
+          const Image = req.file ? req.file.filename : null;
+      
+          // Create a new event feed using the schema
+          const newEventFeed = new eventFeedModel({
+            userId: userId,
+            userName: userName,
+            user_profileImage: user_profileImage,
+            eventId: eventId,
+            feed_description: feed_description,
+            feed_image: Image,
+            review: defaultReview
+          });
+      
+          // Save the new event feed to the database
+          await newEventFeed.save();
+      
+          return res.status(200).json({
+            success: true,
+            message: 'Event feed created successfully',
+            feed_Id : newEventFeed._id
+          });
+      
+        } catch (error) {
+          console.error(error);
+          return res.status(500).json({
+            success: false,
+            message: 'Server error'
+          });
+        }
+      };
+      
+  // api for get all feeds 
+                    const get_allfeeds = async (req, res) => {
+                      try {
+                        const eventId = req.params.eventId;
+                    
+                        // Check for eventId
+                        if (!eventId) {
+                          return res.status(200).json({
+                            success: false,
+                            message: 'Event Id is required'
+                          });
+                        }
+                    
+                        // Check for all feeds
+                        const all_feeds = await eventFeedModel.find({ eventId: eventId });
+                    
+                        if (!all_feeds || all_feeds.length === 0) {
+                          return res.status(200).json({
+                            success: false,
+                            message: 'No feeds found for the event'
+                          });
+                        } else {
+                          // Map each feed to extract necessary information
+                          const formattedFeeds = all_feeds.map(feed => {
+                            const originalDate = new Date(feed.createdAt);
+                            const formattedDate = `${originalDate.getUTCFullYear()}-${(originalDate.getUTCMonth() + 1).toString().padStart(2, '0')}-${originalDate.getUTCDate().toString().padStart(2, '0')} ${originalDate.getUTCHours().toString().padStart(2, '0')}:${originalDate.getUTCMinutes().toString().padStart(2, '0')}:${originalDate.getUTCSeconds().toString().padStart(2, '0')}`;
+                    
+                            return {
+                              feed_id: feed._id,
+                              eventId: feed.eventId,
+                              userId: feed.userId,
+                              userName: feed.userName,
+                              user_profileImage: feed.user_profileImage,
+                              feed_description: feed.feed_description,
+                              feed_image: feed.feed_image,
+                              feed_created_time: formattedDate,
+                              feed_likes: feed.feed_review ? feed.feed_review.like_count || 0 : 0,
+                              feed_comments: feed.feed_review ? feed.feed_review.comment_count || 0 : 0,
+                              feed_views: feed.feed_review ? feed.feed_review.view_count || 0 : 0
+                            };
+                          });
+                    
+                          return res.status(200).json({
+                            success: true,
+                            message: 'All feeds details for the event',
+                            feeds: formattedFeeds
+                          });
+                        }
+                      } catch (error) {
+                        console.error(error);
+                        return res.status(500).json({
+                          success: false,
+                          message: 'Server error'
+                        });
+                      }
+                    };
+                    
+                    
+  
+
+// APi for delete user feed
+                  const delete_user_feed = async (req, res) => {
+                    try {
+                      const { userId , feed_Id} = req.params;
+
+                      if (!userId) {
+                        return res.status(200).json({
+                          success: false,
+                          message: 'UserId required',
+                        });
+                      }
+                      if (!feed_Id) {
+                        return res.status(200).json({
+                          success: false,
+                          message: 'feed_Id required',
+                        });
+                      }
+
+                      // Check for feed
+                      const feed = await eventFeedModel.findOne({ 
+                            userId: userId ,
+                            _id : feed_Id });
+
+                      if (!feed) {
+                        return res.status(200).json({
+                          success: false,
+                          message: 'Feed not found',
+                        });
+                      } else {
+                        // Delete the feed
+                        await eventFeedModel.deleteOne({ userId: userId , _id : feed_Id });
+
+                        return res.status(200).json({
+                          success: true,
+                          message: 'Feed deleted successfully',
+                        });
+                      }
+                    } catch (error) {
+                      return res.status(500).json({
+                        success: false,
+                        message: 'Server error',
+                        error_message: error.message,
+                      });
+                    }
+                  };
+
+// APi for give like/ unlike to feed in event
+                const like_unlike_feed = async (req, res) => {
+                  try {
+                    const { feed_Id, userId } = req.params;
+
+                    // check for userId and feed_Id required
+                    if (!userId) {
+                      return res.status(200).json({
+                        success: false,
+                        message: 'userId required'
+                      });
+                    }
+                    if (!feed_Id) {
+                      return res.status(200).json({
+                        success: false,
+                        message: 'feed Id required'
+                      });
+                    }
+
+                    // check for feed existence
+                    const feed = await eventFeedModel.findOne({ _id: feed_Id });
+                    if (!feed) {
+                      return res.status(200).json({
+                        success: false,
+                        message: 'feed not found'
+                      });
+                    }
+
+                    // check for user existence
+                    const user = await userModel.findOne({ _id: userId });
+                    if (!user) {
+                      return res.status(200).json({
+                        success: false,
+                        message: 'user not found'
+                      });
+                    }
+
+                    // check if the user already liked the feed
+                    const likedIndex = feed.feed_review.likes.indexOf(userId);
+                    
+
+                    if (likedIndex >= 0) {
+                      // User has already liked, so unlike
+                      feed.feed_review.likes.splice(likedIndex, 1);
+                      feed.feed_review.like_count -= 1; // Update like count
+                      await feed.save();
+
+                      return res.status(200).json({
+                        success: true,
+                        message: 'Feed unliked successfully',
+                        isLiked: 0 // Set isLiked to 0 for unlike
+                      });
+                    } else {
+                      // User has not liked, so like
+                      feed.feed_review.likes.push(userId);
+                      feed.feed_review.like_count += 1; // Update like count
+                      await feed.save();
+
+                      return res.status(200).json({
+                        success: true,
+                        message: 'Feed liked successfully',
+                        isLiked: 1 // Set isLiked to 1 for like
+                      });
+                    }
+                  } catch (error) {
+                    console.error(error);
+                    return res.status(500).json({
+                      success: false,
+                      message: 'Server error'
+                    });
+                  }
+                };
+
+
+// API for add comments in feed
+                  const add_comments = async (req, res) => {
+                    try {
+                      const { userId, feed_Id } = req.params;
+                      const comment = req.body.comment;
+
+                      // check for feed_id and userId required
+                      if (!feed_Id) {
+                        return res.status(200).json({
+                          success: false,
+                          message: 'feed_Id is required',
+                        });
+                      }
+
+                      if (!userId) {
+                        return res.status(200).json({
+                          success: false,
+                          message: 'user Id required',
+                        });
+                      }
+
+                      // check for comment required
+                      if (!comment) {
+                        return res.status(200).json({
+                          success: false,
+                          message: 'comment section is required',
+                        });
+                      }
+
+                      // check for feed
+                      const feed = await eventFeedModel.findOne({ _id: feed_Id });
+
+                      if (!feed) {
+                        return res.status(200).json({
+                          success: false,
+                          message: 'feed not found',
+                        });
+                      }
+
+                      // check for user
+                      const user = await userModel.findOne({ _id: userId });
+
+                      if (!user) {
+                        return res.status(200).json({
+                          success: false,
+                          message: 'user not exist',
+                        });
+                      }
+
+                      // access user name from user
+                      const userName = user.fullName;
+                      const user_image =  user.profileImage
+
+                      // push the comment in feed comment array of feed_review
+                      const newComment = {
+                        userName: userName,
+                        user_image : user_image,
+                        text_comment: comment,
+                      };
+
+                      feed.feed_review.comments.push(newComment);
+                      feed.feed_review.comment_count += 1;
+
+                      // Save the updated feed
+                      await feed.save();
+
+                      return res.status(200).json({
+                        success: true,
+                        message: 'Comment added successfully',
+                        comment: newComment,
+                      });
+                    } catch (error) {
+                      return res.status(500).json({
+                        success: false,
+                        message: 'server error',
+                        error_message: error.message,
+                      });
+                    }
+                  };
+
+
+          // api for get all comments in feed of event
+
+               const get_all_comments = async ( req ,res)=>{
+                    try { 
+                           const { feed_Id } = req.params
+                        // check for feed Id required
+                      if(!feed_Id)
+                      {
+                        return res.status(200).json({
+                                     success : false ,
+                                     message : 'feed Id Required'
+                        })
+                      }
+
+                      // check for feed existance
+                    const feed = await eventFeedModel.findOne({ _id : feed_Id })
+
+                         if(!feed)
+                         {
+                          return res.status(200).json({
+                                    success : false ,
+                                    message : 'feed not found'
+                          })
+                         }
+                         
+                      const comments = feed.feed_review.comments
+                          return res.status(200).json({
+                                      success : true ,
+                                      message : 'all comments of the feed ',
+                                      all_comments : comments
+                          })                      
+                    } catch (error) {
+                      return res.status(500).json({
+                           success : false ,
+                           message : 'server error'
+                      })
+                    }
+               }
+
+        
+     // Api for create views on feed
+     const viewFeed = async (req, res) => {
+      try {
+        const { feed_Id, userId } = req.params;
+    
+        // check for feed_id
+        if (!feed_Id) {
+          return res.status(200).json({
+            success: false,
+            message: 'Feed Id required',
+          });
+        }
+    
+        // check  user_id
+        if (!userId) {
+          return res.status(200).json({
+            success: false,
+            message: 'userId Id required',
+          });
+        }
+    
+        // check for feed
+        const feed = await eventFeedModel.findOne({ _id: feed_Id });
+    
+        if (!feed) {
+          return res.status(200).json({
+            success: false,
+            message: 'Feed not exist',
+          });
+        }
+    
+        // Ensure that the 'views' property is initialized as an array
+        feed.feed_review.views = feed.feed_review.views || [];
+    
+        // Check if the user has already viewed this feed
+        if (!feed.feed_review.views.includes(userId)) {
+          // Increment both view_count and add userId to views array
+          feed.feed_review.views.push(userId);
+          feed.feed_review.view_count += 1;
+          await feed.save();
+    
+          return res.status(200).json({
+            success: true,
+            message: 'User viewed feed successfully',
+            views: feed.feed_review.views.length,
+            view_count: feed.feed_review.view_count,
+          });
+        } else {
+          // User with the same userId has already viewed, no change in counts
+          return res.status(200).json({
+            success: true,
+            message: 'User viewed feed successfully',
+            views: feed.feed_review.views.length,
+            view_count: feed.feed_review.view_count,
+          });
+        }
+      } catch (error) {
+        console.error(error);
+        return res.status(500).json({
+          success: false,
+          message: 'Server error',
+        });
+      }
+    };
+    
+    
+    
+    
+    
+                     
+        
             module.exports = {
                     userSignUp , userLogin , create_Event , newVenue_Date_Time , add_co_host ,
                      edit_Venue_Date_Time , delete_Venue_Date_Time , add_guest , import_Guest ,
@@ -2509,5 +3223,7 @@ const axios = require('axios');
                      getUserEvent   , contactUsPage , faqPage , sendInvitation , getMyInvitation , updateEvent , getEvent,
                      getAllInvited_Event , getVenuesOf_Event , userRespondToInvitedEvent , getAll_co_Hosts , getAllGuest_with_Response ,
                      delete_Guest , getallResponseEvent , updateUser , numberExistance , getSubEventOf_Event , getUser , deleteAllEvents ,
-                     createEventAlbum , getAllAlbum , getParticularAlbum , addImages_in_Album , rename_album , deleteAlbum , deleteImage
+                     createEventAlbum , getAllAlbum , getParticularAlbum , addImages_in_Album , rename_album , deleteAlbum , deleteImage ,
+                     get_Event_on_date , create_feed , get_allfeeds , delete_user_feed , like_unlike_feed , add_comments , get_all_comments ,
+                     viewFeed , getEventsByMonth
 }

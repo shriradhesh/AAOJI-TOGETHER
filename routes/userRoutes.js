@@ -44,7 +44,7 @@ const userController = require('../controller/userController')
     // API for add all guests of Event into BookMark with collectionName
                          router.post('/addAllGuestsToBookmark/:eventId', userController.addAllGuestsToBookmark)
     // APi for delete a Guest of collection in bookmark model
-                        router.delete('/deleteGuestInCollection/:guestId', userController.deleteGuestInCollection) 
+                        router.delete('/deleteGuestInCollection/:collection_id/:guestId', userController.deleteGuestInCollection) 
     // APi for searchEvent Event by Id
                         router.get('/searchEvent', userController.searchEvent)
    // APi for get filtered event 
@@ -107,11 +107,33 @@ const userController = require('../controller/userController')
 // APi for get particular album 
                        router.get('/getParticularAlbum/:eventId/:Album_Id', userController.getParticularAlbum)
 // APi for add Images in Album
-                        router.post('/addImages_in_Album/:album_id/:image_arrayId', upload.array('images', 100), userController.addImages_in_Album)
+                        router.post('/addImages_in_Album/:album_id', upload.single('images') , userController.addImages_in_Album)
 // APi for Rename Album
                         router.post('/rename_album/:album_id', userController.rename_album)
 // APi for delete Album
                         router.delete('/deleteAlbum/:album_id', userController.deleteAlbum)
 // Api for delete Image in Album
                         router.delete('/deleteImage/:image_id/:album_id', userController.deleteImage)
+
+                                /*  Calander  */
+// Api for get event on Date
+                        router.post('/get_Event_on_date/:userId', userController.get_Event_on_date)
+
+                        router.post('/getEventsByMonth/:userId', userController.getEventsByMonth )
+
+                                    /* Event feed section */
+// Api for create feed in event
+                         router.post('/create_feed/:eventId/:userId',upload.single('Image'), userController.create_feed)
+// APi for get all feeds of event
+                         router.get('/get_allfeeds/:eventId', userController.get_allfeeds)
+// Api for delete feed by userID
+                         router.delete('/delete_user_feed/:userId/:feed_Id', userController.delete_user_feed)
+// API for like - unlike feed in event
+                         router.post('/like_unlike_feed/:feed_Id/:userId', userController.like_unlike_feed)
+// APi for add comment in feed of event
+                         router.post('/add_comments/:feed_Id/:userId', userController.add_comments)
+// Api for get_all_commemnts in feed of event
+                         router.get('/get_all_comments/:feed_Id', userController.get_all_comments)
+// Api for viewFeed in event
+                          router.post('/viewFeed/:feed_Id/:userId', userController.viewFeed)
 module.exports = router

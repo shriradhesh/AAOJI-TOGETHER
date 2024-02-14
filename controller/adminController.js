@@ -21,6 +21,7 @@ const notificationEmail = require('../utils/AdminSendEmails')
 const contactUs = require('../models/contactUs')
 const faqModel = require('../models/FaQ')
 const InvitationModel = require('../models/Invitation')
+const { all } = require('../routes/userRoutes')
 
                                              /* API's  */
 // API for login ADMIN 
@@ -452,26 +453,37 @@ const login_Admin = async (req, res) => {
 // API for get all collections name 
 const getAllCollections = async (req, res) => {
     try {
+          const eventId = req.params.eventId
+        
         // Fetch all collections from the bookmarkModel
-        const allCollections = await bookmarkModel.find({}, 'bookmark_Collection');
+        const allCollections = await bookmarkModel.find({ eventId  });
 
         if (!allCollections || allCollections.length === 0) {
             return res.status(400).json({
                 success: false,
                 existanceMessage: 'No collections found',
             });
+        } else {
+            const collectionDetails = allCollections.map(collections => {
+              
+                return {
+                    collection_id: collections._id,
+                    collection_name: collections.bookmark_Collection[0].name,
+                    collection_created_date : collections.createdAt,
+                    collection_entries_count : collections.bookmark_Collection[0].bookmark_entries.length
+
+
+                    // bookmark_entries : collections.bookmark_Collection[0].bookmark_entries
+                };
+            });
+
+            res.status(200).json({
+                success: true,
+                success_message: 'All bookmark collections',
+                allCollections: collectionDetails,
+            });
         }
 
-        // Extract and merge all 'collections' arrays into a single array
-        const mergedSubArray = allCollections.reduce((acc, bookmark) => {
-            return acc.concat(bookmark.bookmark_Collection);
-        }, []);
-
-        res.status(200).json({
-            success: true,
-            successMessage: 'All collections with details',
-            bookmark_Collection : mergedSubArray,
-        });
     } catch (error) {
         console.error(error);
         return res.status(500).json({
@@ -480,7 +492,6 @@ const getAllCollections = async (req, res) => {
         });
     }
 };
-
 
 
   
@@ -1295,7 +1306,10 @@ const getAllCollections = async (req, res) => {
                                 res.status(200).json({
                                     success: true,
                                     successMessage: 'Collection details retrieved successfully',
-                                    bookmark_Collection: bookmarkCollection,
+                                    collectionName : bookmarkCollection[0].name ,
+                                     collectionGuests : bookmarkCollection[0].bookmark_entries
+                                    // bookmark_Collection: bookmarkCollection,
+
                                 });
                                 } catch (error) {
                                 console.error(error);

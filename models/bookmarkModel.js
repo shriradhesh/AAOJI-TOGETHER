@@ -1,12 +1,17 @@
 const mongoose = require('mongoose');
+const Schema = mongoose.Schema;
 
 const bookmarkSchema = new mongoose.Schema({
-  bookmark_Collection: [{
+  eventId: {
+    type: Schema.Types.ObjectId,
+    ref: "eventModel",
+  },
+  bookmark_Collection : [{
     name: {
       type: String,
       required: true,
     },
-    entries: [{
+    bookmark_entries: [{
       Guest_Name: {
         type: String,
       },
