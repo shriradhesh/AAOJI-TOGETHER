@@ -1,27 +1,32 @@
 const mongoose = require('mongoose');
 
-const UsersNotificationSchema = new mongoose.Schema({
+const NotificationSchema = new mongoose.Schema({
 userId: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'UserModel'      
-},  
+},
+message :
+{
+  type : String
+},
+phone_no : {
+    type : Number
+  },
+  
+
 eventId: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'eventModel',     
 },  
 
-date: {
-    type: Date,  
-},
 
 title :
 {
   type : String
 },
 
-message :
-{
-  type : String
+description : {
+    type : String
 },
 
 userEmail : {
@@ -30,13 +35,11 @@ userEmail : {
 userName : {
     type : String
 },
-phone_no : {
-  type : Number
-},
+
 },{
   timestamps: true,
 });
 
-const UsersNotificationModel = mongoose.model('UsersNotificationModel', UsersNotificationSchema);
+const NotificationModel = mongoose.model('NotificationModel', NotificationSchema);
 
-module.exports = UsersNotificationModel;
+module.exports = NotificationModel;

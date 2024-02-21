@@ -14,6 +14,10 @@ const eventImageModel = require('../models/eventImages')
 const contactUs = require('../models/contactUs')
 const InvitedeventModel = require('../models/Invitation')
 const eventFeedModel = require('../models/eventFeedModel')
+const NotificationModel = require('../models/Notification')
+const UsersNotificationModel = require('../models/userNotifications')
+mongoose = require('mongoose')
+
 
 const Admin = require('../models/AdminModel')
 const faqModel = require('../models/FaQ')
@@ -401,58 +405,84 @@ const { TrustProductsEntityAssignmentsPage } = require('twilio/lib/rest/trusthub
            }
 
 // add co host
-                                const add_co_host = async (req, res) => {
-                                  const eventId = req.params.eventId;
-                                  const { co_host_Name, phone_no } = req.body;
-                                  try {
-                                      const requiredFields = ['co_host_Name', 'phone_no'];
+            const add_co_host = async (req, res) => {
+              const eventId = req.params.eventId;
+              const { co_host_Name, phone_no } = req.body;
+              try {
+                  const requiredFields = ['co_host_Name', 'phone_no'];
 
-                                      for (const field of requiredFields) {
-                                          if (!req.body[field]) {
-                                              return res.status(400).json({
-                                                  message: `Missing ${field.replace('_', ' ')} field`,
-                                                  success: false
-                                              });
-                                          }
-                                      }
+                  for (const field of requiredFields) {
+                      if (!req.body[field]) {
+                          return res.status(400).json({
+                              message: `Missing ${field.replace('_', ' ')} field`,
+                              success: false
+                          });
+                      }
+                  }
 
-                                      // check for event
-                                      const event = await eventModel.findOne({ _id: eventId });
-                                      if (!event) {
-                                          return res.status(400).json({
-                                              success: false,
-                                              eventExistanceMessage: 'Event not found with the given eventId'
-                                          });
-                                      }
+                  // Check if the phone number exists in the userModel
+                  const user = await userModel.findOne({ phone_no });
+                  if (!user) {
+                      return res.status(400).json({
+                          message: `No user found with the provided phone number`,
+                          success: false
+                      });
+                  }
 
-                                      // Check if the phone number already exists among co-hosts
-                                      const existPhoneNumber = event.co_hosts.find((cohost) => cohost.phone_no === phone_no);
-                                      if (existPhoneNumber) {
-                                          return res.status(400).json({
-                                              message: `Co-host with the phone number ${phone_no} already exists`,
-                                              success: false
-                                          });
-                                      }
+                  // check for event
+                  const event = await eventModel.findOne({ _id: eventId });
+                  if (!event) {
+                      return res.status(400).json({
+                          success: false,
+                          eventExistanceMessage: 'Event not found with the given eventId'
+                      });
+                  }
 
-                                      // Add co-host to the event
-                                      event.co_hosts.push({
-                                          co_host_Name,
-                                          phone_no
-                                      });
+                  // check for invited event
+                  let invitedEvent = await InvitedeventModel.findOne({ eventId: eventId })
 
-                                      await event.save();
-                                      return res.status(200).json({
-                                          success: true,
-                                          message: `Co-host added successfully`
-                                      });
-                                  } catch (error) {
-                                      console.error(error);
-                                      return res.status(500).json({
-                                          success: false,
-                                          message: 'There is a server error'
-                                      });
-                                  }
-                                };
+
+                  // Check if the phone number already exists among co-hosts
+                  const existPhoneNumber = event.co_hosts.find((cohost) => cohost.phone_no === phone_no);
+                  if (existPhoneNumber) {
+                      return res.status(400).json({
+                          message: `Co-host with the phone number ${phone_no} already exists`,
+                          success: false
+                      });
+                  }
+
+                  // Use the user's _id as coHostId
+                  const coHostId = user._id;
+
+                  // Add co-host to the event
+                  const newCoHost = {
+                      _id: coHostId,
+                      co_host_Name,
+                      phone_no
+                  };
+
+                  event.co_hosts.push(newCoHost);
+
+                  // Add the same co-host to invitedEvent too with the same _id
+                  invitedEvent.co_hosts.push(newCoHost);
+
+                  await event.save();
+                  await invitedEvent.save();
+
+                  return res.status(200).json({
+                      success: true,
+                      message: `Co-host added successfully`
+                  });
+              } catch (error) {
+                  console.error(error);
+                  return res.status(500).json({
+                      success: false,
+                      message: 'There is a server error'
+                  });
+              }
+            };
+
+
 
 // API for delete co-host in event
                              const delete_co_Host = async (req , res)=>{
@@ -651,61 +681,123 @@ const { TrustProductsEntityAssignmentsPage } = require('twilio/lib/rest/trusthub
                               }
 
 // add guest in event
-                            const add_guest = async (req, res) => {
-                              try {
-                                  const eventId = req.params.eventId;
-                                  const { Guest_Name, phone_no } = req.body;                                        
+                      const add_guest = async (req, res) => {
+                        try {
+                          const eventId = req.params.eventId;
+                          const { Guest_Name, phone_no, eventGuest_key } = req.body;
 
-                                  const requiredFields = ['Guest_Name', 'phone_no'];
+                          const requiredFields = ['Guest_Name', 'phone_no', 'eventGuest_key'];
 
-                                  for (const field of requiredFields) {
-                                      if (!req.body[field]) {
-                                          return res.status(400).json({ message: `Missing ${field.replace('_', ' ')} field`, success: false });
-                                      }
-                                  }
+                          for (const field of requiredFields) {
+                            if (!req.body[field]) {
+                              return res.status(400).json({ message: `Missing ${field.replace('_', ' ')} field`, success: false });
+                            }
+                          }
 
-                                  // Check for event
-                                  const event = await eventModel.findOne({ _id: eventId });
+                          // Check for event
+                          const event = await eventModel.findOne({ _id: eventId });
 
-                                  if (!event) {
-                                      return res.status(400).json({ success: false, message: `Event not found with the eventId ${eventId}` });
-                                  }
+                          if (!event) {
+                            return res.status(400).json({ success: false, message: `Event not found with the eventId ${eventId}` });
+                          }
 
-                                  // Check if guest already exists with the same phone_no
-                                  const guestExist = event.Guests.find((guest) => guest.phone_no === phone_no);
+                          // Convert eventGuest_key to integer if it's a string
+                          const key = parseInt(eventGuest_key);
 
-                                  if (guestExist) {
-                                      return res.status(400).json({
-                                          success: false,
-                                          guestExistMessage: 'Guest already exists with the same phone_no',
-                                      });
-                                  }
-                                    else
-                                    {
-                                  // Add the new guest to the Guests array
-                                  event.Guests.push({
-                                      Guest_Name,
-                                      phone_no,
-                                      status: 0,
-                                  });
-                                      
-                                  await event.save();
+                          if (![1, 2].includes(key)) {
+                            return res.status(400).json({ success: false, message: `Invalid eventGuest_key value` });
+                          }
 
-                                  return res.status(200).json({
-                                      success: true,
-                                      message: `Guest added successfully`,
-                                  });
-                                }
-                              } catch (error) {
-                                  console.error(error);
-                                  return res.status(500).json({
-                                      success: false,
-                                      message: 'There is a server error',
-                                  });
-                              }
-                            };
+                          if (key === 1) {
+                            // Check if guest already exists with the same phone number 
+                            const guestExist = event.Guests.find((guest) => guest.phone_no === phone_no);
 
-   
+                            if (guestExist) {
+                              return res.status(400).json({
+                                success: false,
+                                guestExistMessage: 'Guest already exists with the same phone_no',
+                              });
+                            }
+
+                            // Add the new guest to the Guests array
+                            event.Guests.push({
+                              Guest_Name,
+                              phone_no,
+                              status: 0,
+                            });
+
+                            await event.save();
+
+                            return res.status(200).json({
+                              success: true,
+                              message: `Guest added successfully`,
+                            });
+                          } else if (key === 2) {
+                            // Check for invited Event
+                            const invitedEvent = await InvitedeventModel.findOne({ eventId: eventId });
+
+                            if (!invitedEvent) {
+                              return res.status(400).json({ success: false, message: `Invited event not found with the eventId ${eventId}` });
+                            }
+
+                            // Check if guest already exists with the same phone number in the invited event
+                            const guestExistInInvitedEvent = invitedEvent.Guests.find((guest) => guest.phone_no === phone_no);
+
+                            if (guestExistInInvitedEvent) {
+                              return res.status(400).json({
+                                success: false,
+                                guestExistMessage: 'Guest already exists with the same phone_no in the invited event',
+                              });
+                            }
+                            else{
+                              // Add the guest to the Invited Event 
+                            invitedEvent.Guests.push({
+                              Guest_Name,
+                              phone_no,
+                              status: 2
+                            });
+                            await invitedEvent.save();
+
+                            // Check if user exists with the provided phone number
+                            const user = await userModel.findOne({ phone_no: phone_no });
+
+                            if (user) {
+                              // Create a notification for the user
+                              await NotificationModel.create({
+                                eventId: event._id,
+                                title: event.title,
+                                description: event.description,
+                                userId: user._id,
+                                phone_no: phone_no,
+                                message: `Hello, you are invited to ${event.title} by ${event.userName}`
+                              });
+                            } else {
+                              // Sending SMS to invalid guests
+                              const formattedPhoneNumber = `+91${phone_no}`;
+                              const message = `Hello, you are invited to ${event.title} by ${event.userName}. Receive updates about the event on the link: https://localhost.com`;
+
+                              // Use SMS Gateway Hub to send SMS
+                              await sendSMSUsingGatewayHub(formattedPhoneNumber, message);
+                            }
+
+                            return res.status(200).json({
+                              success: true,
+                              message: 'Guests added successfully',
+                            });
+                          }
+                            }
+
+                            
+                        } catch (error) {
+                          console.error(error);
+                          return res.status(500).json({
+                            success: false,
+                            message: 'There is a server error',
+                          });
+                        }
+                      };
+
+
 
       // API for import guest from excel
                           const import_Guest = async (req, res) => {
@@ -1292,48 +1384,61 @@ const { TrustProductsEntityAssignmentsPage } = require('twilio/lib/rest/trusthub
                 };
     
     // API for get user event 
-                  const getUserEvent = async(req ,res)=>{
-                    try {
-                      const userId = req.params.userId
-                      // check for user
-                      const user = await userModel.findOne({ _id : userId })
-                      if(!user)
-                      {
-                        return res.status(400).json({
-                                          success : false ,
-                                          message : 'user not found'
-                        })
-                      }
-                      // check for user event
-                      const event = await eventModel.find({ userId : userId })
-                      if(!event)
-                      {
-                        return res.status(400).json({
-                                          success : false ,
-                                          message : 'user event not found'
-                        })
-                      }
-                      else
-                      {
-                        // Sort user Event by createdAt
-                        const sorted_userEvent = event.sort(
-                          (a, b) => b.createdAt - a.createdAt
-                        );
-
-                        return res.status(200).json({
-                                       success : true ,
-                                       message : 'user events',
-                                       events : sorted_userEvent
-                        })
-                      }
-
-                    } catch (error) {
-                      return res.status(500).json({
-                                  success : false ,
-                                  message : 'there is a server error '
+                const getUserEvent = async (req, res) => {
+                  try {
+                      const userId = req.params.userId;
+                    // check fot userId
+                    if(!userId)
+                    {
+                      return res.status(400).json({
+                        success : false ,
+                        message : 'user Id required'
                       })
-                    }
+                    }              
+                      // Fetch events where the user is the host
+                      const created_event = await eventModel.find({ userId: userId });
+                      
+                      // Fetch events where the user is invited
+                      const invitedEvents = await InvitedeventModel.find({ hostId: userId });
+                        
+                      // Add eventType field to distinguish created events and invited events
+                      const userEventsWithEventType = created_event.map(event => ({
+                          ...event.toObject(),
+                          eventType: 1      // 1 for created event
+                      }));
+              
+                      const invitedEventsWithEventType = invitedEvents.map(event => ({
+                          ...event.toObject(),
+                          eventType: 2    // 2 for Invited event
+                      }));
+              
+                      // Merge both arrays of events
+                      const allEvents = [...userEventsWithEventType, ...invitedEventsWithEventType];
+              
+                      // Check if any events were found
+                      if (allEvents.length === 0) {
+                          return res.status(400).json({
+                              success: false,
+                              message: 'No events found for the user',
+                          });
+                      }
+              
+                      // Sort all user events by createdAt
+                      const sortedUserEvents = allEvents.sort((a, b) => b.createdAt - a.createdAt);
+              
+                      return res.status(200).json({
+                          success: true,
+                          message: 'User events',
+                          events: sortedUserEvents,
+                      });
+                  } catch (error) {
+                      return res.status(500).json({
+                          success: false,
+                          message: 'There is a server error',
+                      });
                   }
+              };
+              
 
                               /*  Contact Us */
   // API for contact us
@@ -1415,6 +1520,7 @@ const { TrustProductsEntityAssignmentsPage } = require('twilio/lib/rest/trusthub
          const sendInvitation = async (req, res) => {
           try {
               const { eventId } = req.params;
+              const today = new Date();
       
               // Find event
               const event = await eventModel.findOne({ _id: eventId }).populate('Guests');
@@ -1424,13 +1530,22 @@ const { TrustProductsEntityAssignmentsPage } = require('twilio/lib/rest/trusthub
                       eventExistanceMessage: 'Event not found',
                   });
               }
-             
-          // Check for bus number
-          const existInvitedEvent = await InvitedeventModel.findOne({ eventId });
-  
-          if (existInvitedEvent) {
-              return res.status(400).json({ success : true , message: 'you already invite Guests for these event ' });
-          }
+      
+              // Check if the event date is expired
+              const eventDate = new Date(event.venue_Date_and_time[0].date);
+              if (eventDate < today) {
+                  return res.status(400).json({
+                      success: false,
+                      message: "Event date is expired so you can't send invitations.",
+                  });
+              }
+      
+              // Check for existing invited event
+              const existInvitedEvent = await InvitedeventModel.findOne({ eventId });
+              if (existInvitedEvent) {
+                  return res.status(400).json({ success: true, message: 'You already invite guests for this event.' });
+              }
+      
               // Create invitations object
               const invitation = {
                   hostId: event.userId,
@@ -1457,30 +1572,64 @@ const { TrustProductsEntityAssignmentsPage } = require('twilio/lib/rest/trusthub
               // Save invitation to the database
               await InvitedeventModel.create(invitation);
       
+              // Process sending invitations
+              let invalidGuests = [];
               for (const guest of event.Guests) {
-                  // Convert the phone number string to numeric format
-                  const phone_no_numeric = parseInt(guest.phone_no, 10);
-                  const formattedPhoneNumber = `+91${phone_no_numeric}`;
-                  const  message = `Hello, you are invited to ${event.title} by ${event.userName}. Receive updates about the event on the link: https://localhost.com`;
-                 
+                  let phone_no_numeric;
+                  if (typeof guest.phone_no === 'string') {
+                      // Convert the phone number string to a double
+                      phone_no_numeric = parseFloat(guest.phone_no);
+                  } else {
+                      // If it's already a double, assign it directly
+                      phone_no_numeric = guest.phone_no;
+                  }
+                  const user = await userModel.findOne({ phone_no: phone_no_numeric });
       
-                  // Use SMS Gateway Hub to send SMS
-                  await sendSMSUsingGatewayHub(formattedPhoneNumber, message);
+                  if (user) {
+                      // If user exists, create notification
+                      await NotificationModel.create({
+                          eventId: event._id,
+                          title: event.title,
+                          description: event.description,
+                          userId: user._id,
+                          phone_no: guest.phone_no,
+                          message: `Hello, you are invited to ${event.title} by ${event.userName}`
+                      });
+                  } else {
+                      // If user does not exist, push to invalid guests list
+                      invalidGuests.push({ Guest_Name: guest.Guest_Name, phone_no: guest.phone_no });
+                  }
+              }
+      
+              // Send invitations to invalid guests via SMS
+              if (invalidGuests.length > 0) {
+                  for (const guest of invalidGuests) {
+                      // Convert the phone number string to numeric format
+                      const phone_no_numeric = parseInt(guest.phone_no, 10);
+                      const formattedPhoneNumber = `+91${phone_no_numeric}`;
+                      const message = `Hello, you are invited to ${event.title} by ${event.userName}. Receive updates about the event on the link: https://localhost.com`;
+      
+                      // Use SMS Gateway Hub to send SMS
+                      await sendSMSUsingGatewayHub(formattedPhoneNumber, message);
+                  }
               }
       
               res.status(200).json({
                   success: true,
-                  successMessage: 'Invitation for the event stored successfully, and SMS sent to guests!',
+                  message: 'Invitation sent successfully ....!!',
               });
           } catch (error) {
               console.error('Error:', error.response ? error.response.data : error.message);
               res.status(500).json({
                   success: false,
-                  serverErrorMessage: 'SERVER ERROR',
+                  message : 'SERVER ERROR',
               });
           }
       };
       
+
+         
+            
       const sendSMSUsingGatewayHub = async (formattedPhoneNumber, message, apiKey = 'DfRvyBzYh02aalLlL4j9Zg', senderId = 'FESSMS') => {
         const gatewayHubApiUrl = 'https://www.smsgatewayhub.com/api/mt/SendSMS';
     
@@ -1830,7 +1979,7 @@ const { TrustProductsEntityAssignmentsPage } = require('twilio/lib/rest/trusthub
                                 }
                                }              
                            
-// API for give response to Invited event on the behaf of user
+// API for give response to Invited event on the behalf of user
                           const userRespondToInvitedEvent = async (req, res) => {
                             try {
                               const eventId = req.params.eventId;
@@ -1939,7 +2088,7 @@ const { TrustProductsEntityAssignmentsPage } = require('twilio/lib/rest/trusthub
                                 // Save the new record
                                 await newUserResponse.save();
                               }
-
+                                  
                               return res.status(200).json({
                                 success: true,
                                 responseMessage: 'Event response saved successfully',
@@ -1963,7 +2112,7 @@ const { TrustProductsEntityAssignmentsPage } = require('twilio/lib/rest/trusthub
                                 if (!eventId) {
                                   return res.status(400).json({
                                     success: false,
-                                    eventIdRequired: 'Event Id required',
+                                    message: 'Event Id required',
                                   });
                                 }
                             
@@ -1973,7 +2122,7 @@ const { TrustProductsEntityAssignmentsPage } = require('twilio/lib/rest/trusthub
                                 if (!event) {
                                   return res.status(400).json({
                                     success: false,
-                                    eventExistanceMessage: 'Event not found in event model',
+                                    message: 'Event not found in event model',
                                   });
                                 }
                             
@@ -1983,7 +2132,7 @@ const { TrustProductsEntityAssignmentsPage } = require('twilio/lib/rest/trusthub
                                 if (!invitationEvent) {
                                   return res.status(400).json({
                                     success: false,
-                                    InvitationEvent_ExistanceMessage: 'there is no invitation for the eventId',
+                                    message: 'there is no invitation for the eventId',
                                   });
                                 }
                             
@@ -1993,7 +2142,7 @@ const { TrustProductsEntityAssignmentsPage } = require('twilio/lib/rest/trusthub
                                 if (!guests_ResponseEvent) {
                                   return res.status(400).json({
                                     success: false,
-                                    guests_ResponseEvent: 'There is no guests response exist for the invitation',
+                                    message: 'There is no guests response exist for the invitation',
                                   });
                                 }
                             
@@ -2002,7 +2151,7 @@ const { TrustProductsEntityAssignmentsPage } = require('twilio/lib/rest/trusthub
                             
                                 return res.status(200).json({
                                   success: true,
-                                  successMessage: 'Invitation response guests Lists',
+                                  message : 'Invitation response guests Lists',
                                   guests_list: guestsList,
                                 });
                               } catch (error) {
@@ -2024,14 +2173,14 @@ const { TrustProductsEntityAssignmentsPage } = require('twilio/lib/rest/trusthub
                           {
                             return res.status(400).json({
                                       success : false ,
-                                      responseEventExistance : 'response event not found'
+                                      message : 'response event not found'
                             })
                           }
                           else
                           {
                             return res.status(200).json({
                                           success : true ,
-                                          successMessage : 'Guests response event',
+                                          message : 'Guests response event',
                                           guests_ResponseEvent : responseEvent
 
                             })
@@ -2515,6 +2664,7 @@ const { TrustProductsEntityAssignmentsPage } = require('twilio/lib/rest/trusthub
 
        
         const { parse, format, eachDayOfInterval } = require('date-fns');
+
 
         const get_Event_on_date = async (req, res) => {
           try {
@@ -3210,9 +3360,62 @@ const { TrustProductsEntityAssignmentsPage } = require('twilio/lib/rest/trusthub
     };
     
     
+    // Api for get notification of user
     
-    
-    
+    const getNotification_of_user = async (req, res) => {
+      try {
+          const userId = req.params.userId;
+          
+          // Check if userId is provided
+          if (!userId) {
+              return res.status(400).json({
+                  success: false,
+                  message: 'User ID is required'
+              });
+          }
+  
+          // Fetch notifications from both models
+          const notifications = await Promise.all([
+              NotificationModel.find({ userId }),
+              UsersNotificationModel.find({ userId })
+          ]);
+  
+          // Combine notifications from both models into a single array
+          const combinedNotifications = notifications.flat();
+  
+          // Check if no notifications are found
+          if (combinedNotifications.length === 0) {
+              return res.status(400).json({
+                  success: false,
+                  message: 'No notifications found for the user'
+              });
+          }
+  
+          // Send the combined notifications as response
+          return res.status(200).json({
+              success: true,
+              message: 'User notifications',
+              notifications: combinedNotifications.map(notification => ({
+                  notification_id: notification._id,
+                  userId: notification.userId,
+                  message: notification.message,
+                  title: notification.title,
+                  description: notification.description,
+                  eventId: notification.eventId
+              }))
+          });
+      } catch (error) {
+          return res.status(500).json({
+              success: false,
+              message: 'Server error',
+              error_message: error.message
+          });
+      }
+  };
+  
+
+  
+        
                      
         
             module.exports = {
@@ -3225,5 +3428,5 @@ const { TrustProductsEntityAssignmentsPage } = require('twilio/lib/rest/trusthub
                      delete_Guest , getallResponseEvent , updateUser , numberExistance , getSubEventOf_Event , getUser , deleteAllEvents ,
                      createEventAlbum , getAllAlbum , getParticularAlbum , addImages_in_Album , rename_album , deleteAlbum , deleteImage ,
                      get_Event_on_date , create_feed , get_allfeeds , delete_user_feed , like_unlike_feed , add_comments , get_all_comments ,
-                     viewFeed , getEventsByMonth
+                     viewFeed , getEventsByMonth , getNotification_of_user 
 }

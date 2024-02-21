@@ -1,0 +1,391 @@
+const mongoose = require('mongoose');
+const Schema = mongoose.Schema;
+
+const eventSchema = new Schema({
+  userId: {
+    type: Schema.Types.ObjectId,
+    ref: "userModel",
+  },
+  userName: {
+    type: String
+  },
+  adminId: {
+    type: Schema.Types.ObjectId,
+    ref: "Admin",
+  },
+  adminName: {
+    type: String
+  },
+  title: {
+    type: String,
+  },
+  description: {
+    type: String,
+  },
+  event_Type: {
+    type: String,
+    enum: ['Business_Conference', 'Music_Festivals', 'Birthday', 'Exhibitions', 'Wedding_Anniversary', 'Sports', 'marriage', 'Demo', 'Marriage'],
+  },
+  co_hosts: [
+    {
+      co_host_Name: {
+        type: String
+      },
+      phone_no: {
+        type: String
+      },
+      permissions: {
+        newVenue_Date_Time: { type: Boolean, default: true },
+        edit_Venue_Date_Time: { type: Boolean, default: true },
+        delete_Venue_Date_Time: { type: Boolean, default: true },
+        add_guest: { type: Boolean, default: true },
+        import_Guest: { type: Boolean, default: true },
+        getAllGuest: { type: Boolean, default: true },
+        addAllGuestsToBookmark: { type: Boolean, default: true },
+        deleteGuestInCollection: { type: Boolean, default: true },
+        searchEvent: { type: Boolean, default: true },
+        getFilteredEvent: { type: Boolean, default: true },
+        feedback: { type: Boolean, default: true },
+        deleteEvent: { type: Boolean, default: false },
+        sendInvitation: { type: Boolean, default: true },
+        updateEvent: { type: Boolean, default: true },
+        getAllInvited_Event: { type: Boolean, default: true },
+        getVenuesOf_Event: { type: Boolean, default: true },
+        userRespondToInvitedEvent: { type: Boolean, default: true },
+        getAll_co_Hosts: { type: Boolean, default: true },
+        getAllGuest_with_Response: { type: Boolean, default: true },
+        delete_Guest: { type: Boolean, default: true },
+        getallResponseEvent: { type: Boolean, default: true },
+        getSubEventOf_Event: { type: Boolean, default: true },
+        createEventAlbum: { type: Boolean, default: true },
+        getAllAlbum: { type: Boolean, default: true },
+        getParticularAlbum: { type: Boolean, default: true },
+        addImages_in_Album: { type: Boolean, default: true },
+        rename_album: { type: Boolean, default: true },
+        deleteAlbum: { type: Boolean, default: true },
+        deleteImage: { type: Boolean, default: true },
+        get_Event_on_date: { type: Boolean, default: true },
+        get_all_comments: { type: Boolean, default: true },
+        getCollectionGuests: { type: Boolean, default: true },
+        getFeedbacksofEvent: { type: Boolean, default: true },
+        checkAndToggleStatus: { type: Boolean, default: true },
+        deleteFeedback_OfEvent: { type: Boolean, default: true },
+        getAllFeedback: { type: Boolean, default: true },
+        deleteFeedback: { type: Boolean, default: true },
+        getAllCollections: { type: Boolean, default: true },
+        getCollectionById: { type: Boolean, default: true }
+        // Add more permissions as needed
+      }
+    },
+  ],
+  Guests: [
+    {
+      Guest_Name: {
+        type: String
+      },
+      phone_no: {
+        type: String
+      },
+      status: {
+        type: Number,
+        enum: [0, 1],
+        default: 0
+      }
+    },
+  ],
+  images: {
+    type: [String],
+  },
+  event_key: {
+    type: Number
+  },
+  event_status: {
+    type: Number,
+    enum: [0, 1],
+    default: 1
+  },
+  venue_Date_and_time: [
+    {
+      sub_event_title: {
+        type: String
+      },
+      venue_Name: {
+        type: String,
+      },
+      venue_location: {
+        type: String,
+      },
+      date: {
+        type: String,
+      },
+      start_time: {
+        type: String,
+      },
+      end_time: {
+        type: String,
+      },
+    }
+  ],
+}, { timestamps: true });
+
+const eventModel = mongoose.model('eventModel', eventSchema);
+
+module.exports = eventModel;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+******()()()()()()()()()()()()()()()()()())()()(()()()()()()() ********************************
+
+
+ // Api for get all user events
+          const getAll_userEvent = async (req, res) => {
+            try {
+                const { userId, event_type_key } = req.body;
+                // check for userId 
+                if (!userId) {
+                    return res.status(400).json({
+                        success: false,
+                        message: 'user Id required'
+                    });
+                }
+                // check for event_type_key
+                if (!event_type_key) {
+                    return res.status(400).json({
+                        success: false,
+                        message: 'event_type_key required '
+                    });
+                }
+                // Convert event_type_key to integer if it's a string
+                const key = parseInt(event_type_key);
+        
+                if (![1, 2, 3].includes(key)) {
+                    return res.status(400).json({ success: false, message: `Invalid eventGuest_key value` });
+                }
+                if (key === 1) {
+                    try {
+                        // Fetch user and events
+                        const user = await userModel.findOne({ _id: userId });
+                        if (!user) {
+                            return res.status(400).json({
+                                success: false,
+                                message: 'user not found'
+                            });
+                        }
+                        const events = await eventModel.find({ userId: userId });
+                        if (!events || events.length === 0) {
+                            return res.status(400).json({
+                                success: false,
+                                message: 'user event not found'
+                            });
+                        }
+                        // Sort user Event by createdAt
+                        const sorted_userEvent = events.sort((a, b) => b.createdAt - a.createdAt);
+                        return res.status(200).json({
+                            success: true,
+                            message: 'user events',
+                            events: sorted_userEvent,
+                            event_type_key : event_type_key,
+                            event_type : 'created event'
+                        });
+                    } catch (error) {
+                        return res.status(500).json({
+                            success: false,
+                            message: 'there is a server error '
+                        });
+                    }
+                }
+
+                else if (key === 2)
+                {
+                  try {
+                    // Fetch user and events
+                    const user = await userModel.findOne({ _id: userId });
+                    if (!user) {
+                        return res.status(400).json({
+                            success: false,
+                            message: 'user not found'
+                        });
+                    }
+                    const events = await InvitedeventModel.find({ hostId: userId });
+                    if (!events || events.length === 0) {
+                        return res.status(400).json({
+                            success: false,
+                            message: 'user event not found'
+                        });
+                    }
+                    // Sort user Event by createdAt
+                    const sorted_userEvent = events.sort((a, b) => b.createdAt - a.createdAt);
+                    return res.status(200).json({
+                        success: true,
+                        message: 'user events',
+                        events: sorted_userEvent,
+                        event_type_key : event_type_key,
+                        event_type : 'Invited event'
+                    });
+                } catch (error) {
+                    return res.status(500).json({
+                        success: false,
+                        message: 'there is a server error '
+                    });
+                }
+                }
+                else 
+                {
+
+                }
+            } catch (error) {
+                return res.status(500).json({
+                    success: false,
+                    message: 'server error'
+                });
+            }
+        };
+
+
+
+
+
+
+$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$
+
+
+Date validation in send invitation 
+
+
+    *
+   * *
+  * * *
+ * * * *
+* * * * *
+ * * * *
+  * * *
+   * *
+    *
+
+
+
+const sendInvitation = async (req, res) => {
+    try {
+        const { eventId } = req.params;
+        const today = new Date();
+
+        // Find event
+        const event = await eventModel.findOne({ _id: eventId }).populate('Guests');
+        if (!event) {
+            return res.status(400).json({
+                success: false,
+                eventExistanceMessage: 'Event not found',
+            });
+        }
+
+        // Check if the event date is expired
+        const eventDate = new Date(event.venue_Date_and_time[0].date);
+        if (eventDate < today) {
+            return res.status(400).json({
+                success: false,
+                errorMessage: "Event date is expired so you can't send invitations.",
+            });
+        }
+
+        // Check for existing invited event
+        const existInvitedEvent = await InvitedeventModel.findOne({ eventId });
+        if (existInvitedEvent) {
+            return res.status(400).json({ success: true, message: 'You already invited guests for this event.' });
+        }
+
+        // Create invitations object
+        const invitation = {
+            hostId: event.userId,
+            eventId: eventId,
+            hostName: event.userName,
+            event_title: event.title,
+            event_description: event.description,
+            event_Type: event.event_Type,
+            co_hosts: event.co_hosts,
+            Guests: event.Guests,
+            images: event.images,
+            event_status: event.event_status,
+            venue_Date_and_time: event.venue_Date_and_time,
+            event_status: InvitedeventModel.schema.path('event_status').getDefault(),
+        };
+
+        // Populate Guests array with default status
+        invitation.Guests = event.Guests.map(guest => ({
+            Guest_Name: guest.Guest_Name,
+            phone_no: guest.phone_no,
+            status: 2, // Default status: 2 (pending)
+        }));
+
+        // Save invitation to the database
+        await InvitedeventModel.create(invitation);
+
+        // Process sending invitations
+        let invalidGuests = [];
+        for (const guest of event.Guests) {
+            let phone_no_numeric;
+            if (typeof guest.phone_no === 'string') {
+                // Convert the phone number string to a double
+                phone_no_numeric = parseFloat(guest.phone_no);
+            } else {
+                // If it's already a double, assign it directly
+                phone_no_numeric = guest.phone_no;
+            }
+            const user = await userModel.findOne({ phone_no: phone_no_numeric });
+
+            if (user) {
+                // If user exists, create notification
+                await NotificationModel.create({
+                    eventId: event._id,
+                    title: event.title,
+                    description: event.description,
+                    userId: user._id,
+                    phone_no: guest.phone_no,
+                    message: `Hello, you are invited to ${event.title} by ${event.userName}`
+                });
+            } else {
+                // If user does not exist, push to invalid guests list
+                invalidGuests.push({ Guest_Name: guest.Guest_Name, phone_no: guest.phone_no });
+            }
+        }
+
+        // Send invitations to invalid guests via SMS
+        if (invalidGuests.length > 0) {
+            for (const guest of invalidGuests) {
+                // Convert the phone number string to numeric format
+                const phone_no_numeric = parseInt(guest.phone_no, 10);
+                const formattedPhoneNumber = `+91${phone_no_numeric}`;
+                const message = `Hello, you are invited to ${event.title} by ${event.userName}. Receive updates about the event on the link: https://localhost.com`;
+
+                // Use SMS Gateway Hub to send SMS
+                await sendSMSUsingGatewayHub(formattedPhoneNumber, message);
+            }
+        }
+
+        res.status(200).json({
+            success: true,
+            successMessage: 'Invitation for the event sent successfully, and SMS sent to guests!',
+        });
+    } catch (error) {
+        console.error('Error:', error.response ? error.response.data : error.message);
+        res.status(500).json({
+            success: false,
+            serverErrorMessage: 'SERVER ERROR',
+        });
+    }
+};

@@ -670,3 +670,168 @@ work on user section ( create user , login user , change password , update user)
 working on mtn momo ( token generation)
 
 
+
+
+*()()()()()()()()()()()()()()()()()()()()()()
+
+  const add_guest = async (req, res) => {
+                        try {
+                          const eventId = req.params.eventId;
+                          const { Guest_Name, phone_no, eventGuest_key } = req.body;
+
+                          const requiredFields = ['Guest_Name', 'phone_no', 'eventGuest_key'];
+
+                          for (const field of requiredFields) {
+                            if (!req.body[field]) {
+                              return res.status(400).json({ message: `Missing ${field.replace('_', ' ')} field`, success: false });
+                            }
+                          }
+
+                          // Check for event
+                          const event = await eventModel.findOne({ _id: eventId });
+
+                          if (!event) {
+                            return res.status(400).json({ success: false, message: `Event not found with the eventId ${eventId}` });
+                          }
+
+                          // Convert eventGuest_key to integer if it's a string
+                          const key = parseInt(eventGuest_key);
+
+                          if (![1, 2].includes(key)) {
+                            return res.status(400).json({ success: false, message: `Invalid eventGuest_key value` });
+                          }
+
+                          if (key === 1) {
+                            // Check if guest already exists with the same phone number 
+                            const guestExist = event.Guests.find((guest) => guest.phone_no === phone_no);
+
+                            if (guestExist) {
+                              return res.status(400).json({
+                                success: false,
+                                guestExistMessage: 'Guest already exists with the same phone_no',
+                              });
+                            }
+
+                            // Add the new guest to the Guests array
+                            event.Guests.push({
+                              Guest_Name,
+                              phone_no,
+                              status: 0,
+                            });
+
+                            await event.save();
+
+                            return res.status(200).json({
+                              success: true,
+                              message: `Guest added successfully`,
+                            });
+                          } else if (key === 2) {
+                            // Check for invited Event
+                            const invitedEvent = await InvitedeventModel.findOne({ eventId: eventId });
+
+                            if (!invitedEvent) {
+                              return res.status(400).json({ success: false, message: `Invited event not found with the eventId ${eventId}` });
+                            }
+
+                            // Check if guest already exists with the same phone number in the invited event
+                            const guestExistInInvitedEvent = invitedEvent.Guests.find((guest) => guest.phone_no === phone_no);
+
+                            if (guestExistInInvitedEvent) {
+                              return res.status(400).json({
+                                success: false,
+                                guestExistMessage: 'Guest already exists with the same phone_no in the invited event',
+                              });
+                            }
+                            else{
+                              // Add the guest to the Invited Event 
+                            invitedEvent.Guests.push({
+                              Guest_Name,
+                              phone_no,
+                              status: 2
+                            });
+                            await invitedEvent.save();
+
+                            // Check if user exists with the provided phone number
+                            const user = await userModel.findOne({ phone_no: phone_no });
+
+                            if (user) {
+                              // Create a notification for the user
+                              await NotificationModel.create({
+                                eventId: event._id,
+                                title: event.title,
+                                description: event.description,
+                                userId: user._id,
+                                phone_no: phone_no,
+                                message: `Hello, you are invited to ${event.title} by ${event.userName}`
+                              });
+                            } else {
+                              // Sending SMS to invalid guests
+                              const formattedPhoneNumber = `+91${phone_no}`;
+                              const message = `Hello, you are invited to ${event.title} by ${event.userName}. Receive updates about the event on the link: https://localhost.com`;
+
+                              // Use SMS Gateway Hub to send SMS
+                              await sendSMSUsingGatewayHub(formattedPhoneNumber, message);
+                            }
+
+                            return res.status(200).json({
+                              success: true,
+                              message: 'Guests added successfully',
+                            });
+                          }
+                            }
+
+                            
+                        } catch (error) {
+                          console.error(error);
+                          return res.status(500).json({
+                            success: false,
+                            message: 'There is a server error',
+                          });
+                        }
+                      };
+
+
+
+********************()()()()()()(()()()()()()() 
+
+
+
+newVenue_Date_Time
+edit_Venue_Date_Time
+delete_Venue_Date_Time
+add_guest
+import_Guest
+getAllGuest
+addAllGuestsToBookmark
+deleteGuestInCollection
+searchEvent
+getFilteredEvent
+feedback
+deleteEvent
+sendInvitation
+updateEvent
+getAllInvited_Event
+getVenuesOf_Event
+userRespondToInvitedEvent
+getAll_co_Hosts
+getAllGuest_with_Response
+delete_Guest
+getallResponseEvent
+getSubEventOf_Event
+createEventAlbum
+getAllAlbum
+getParticularAlbum
+addImages_in_Album
+ rename_album
+deleteAlbum
+deleteImage
+get_Event_on_date
+get_all_comments
+getCollectionGuests
+getFeedbacksofEvent
+checkAndToggleStatus
+deleteFeedback_OfEvent
+getAllFeedback
+deleteFeedback 
+etAllCollections
+getCollectionById

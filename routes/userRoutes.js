@@ -136,4 +136,7 @@ const userController = require('../controller/userController')
                          router.get('/get_all_comments/:feed_Id', userController.get_all_comments)
 // Api for viewFeed in event
                           router.post('/viewFeed/:feed_Id/:userId', userController.viewFeed)
+// Api for get user Notification
+                         router.get('/getNotification_of_user/:userId', userController.getNotification_of_user)
+
 module.exports = router

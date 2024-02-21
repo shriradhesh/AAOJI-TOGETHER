@@ -372,18 +372,27 @@ const login_Admin = async (req, res) => {
                                                             
                                                          const adminName = admin.firstName
 
-                                                        // Check if an event with the same date and time already exists in the venue_Date_and_time 
-                                                        const existingEvent = await eventModel.findOne({
-                                                            'venue_Date_and_time.date': venue_Date_and_time.date,
-                                                            'venue_Date_and_time.start_time': venue_Date_and_time.start_time,
-                                                            'venue_Date_and_time.end_time': venue_Date_and_time.end_time,
-                                                            'venue_Date_and_time.venue_location' : venue_Date_and_time.venue_location
-                                                        });
-                                                                    
+                                                       const demoEvent = await eventModel.findOne({
+                                                        adminId,
+                                                        title
+                                                       })
+                                                       if (demoEvent) {
+                                                        return res.status(400).json({
+                                                            success: false,
+                                                            eventExistanceMessage: ' Demo Event already exists with the same adminId and title'
+                                                        })
+                                                            }
+                                              // Initialize venue_details as an empty array
+                                                            let venue_details = [];
+                                                        
+                                                            // If venue_Date_and_time is provided, process and set the details
+                                                            if (venue_Date_and_time) {
+                                                            if (venue_Date_and_time !== '') {
+                                                                venue_details = JSON.parse(venue_Date_and_time);
+                                                            }
+                                                            }                                                            
                                                 
-                                                        if (existingEvent) {
-                                                            return res.status(400).json({ message: 'venue with date and time already exist in venue location ', success: false });
-                                                        }
+                                                      
                                                     
                                                         // Process and store multiple image files
                                                         const imagePaths = [];
@@ -397,15 +406,9 @@ const login_Admin = async (req, res) => {
                                                             title,
                                                             description,
                                                             event_Type,
-                                                            venue_Date_and_time: [
-                                                            {
-                                                                venue_Name: venue_Date_and_time.venue_Name,
-                                                                venue_location: venue_Date_and_time.venue_location,
-                                                                date: venue_Date_and_time.date,
-                                                                start_time: venue_Date_and_time.start_time,
-                                                                end_time: venue_Date_and_time.end_time
-                                                            }
-                                                            ],
+                                                            venue_Date_and_time: venue_details,
+                                                            Guests : [],
+                                                            co_hosts : [],
                                                             images: imagePaths,
                                                             adminId : adminId,
                                                             event_status :  eventModel.schema.path('event_status').getDefault(),
