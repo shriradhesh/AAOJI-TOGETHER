@@ -16,7 +16,8 @@ const InvitedeventModel = require('../models/Invitation')
 const eventFeedModel = require('../models/eventFeedModel')
 const NotificationModel = require('../models/Notification')
 const UsersNotificationModel = require('../models/userNotifications')
-mongoose = require('mongoose')
+
+const { ObjectId } = require('mongoose').Types;
 
 
 const Admin = require('../models/AdminModel')
@@ -275,6 +276,7 @@ const { TrustProductsEntityAssignmentsPage } = require('twilio/lib/rest/trusthub
           description,
           event_Type,
           venue_Date_and_time,
+          // city_Name
         } = req.body;
     
         const requiredFields = ['title', 'description', 'event_Type'];
@@ -331,6 +333,8 @@ const { TrustProductsEntityAssignmentsPage } = require('twilio/lib/rest/trusthub
           images: imagePaths,
           userId: userId,
           userName: userName,
+           event_key : 1,
+          //  city_Name : city_Name,
           event_status: eventModel.schema.path('event_status').getDefault(),
         });
     
@@ -405,82 +409,61 @@ const { TrustProductsEntityAssignmentsPage } = require('twilio/lib/rest/trusthub
            }
 
 // add co host
-            const add_co_host = async (req, res) => {
-              const eventId = req.params.eventId;
-              const { co_host_Name, phone_no } = req.body;
-              try {
-                  const requiredFields = ['co_host_Name', 'phone_no'];
+const add_co_host = async (req, res) => {
+  const eventId = req.params.eventId;
+  const { co_host_Name, phone_no } = req.body;
+  try {
+      const event = await eventModel.findOne({ _id: eventId });
+      if (!event) {
+          return res.status(404).json({
+              success: false,
+              message: 'Event not found with the given eventId'
+          });
+      }
 
-                  for (const field of requiredFields) {
-                      if (!req.body[field]) {
-                          return res.status(400).json({
-                              message: `Missing ${field.replace('_', ' ')} field`,
-                              success: false
-                          });
-                      }
-                  }
+      // Check if the phone number already exists among co-hosts
+      const existPhoneNumber = event.co_hosts.find((cohost) => cohost.phone_no === phone_no);
+      if (existPhoneNumber) {
+          return res.status(400).json({
+              success: false,
+              message: `Co-host with the phone number ${phone_no} already exists`
+          });
+      }
 
-                  // Check if the phone number exists in the userModel
-                  const user = await userModel.findOne({ phone_no });
-                  if (!user) {
-                      return res.status(400).json({
-                          message: `No user found with the provided phone number`,
-                          success: false
-                      });
-                  }
+      // Generate a new ObjectId for couserId
+      const couserId = new ObjectId();
 
-                  // check for event
-                  const event = await eventModel.findOne({ _id: eventId });
-                  if (!event) {
-                      return res.status(400).json({
-                          success: false,
-                          eventExistanceMessage: 'Event not found with the given eventId'
-                      });
-                  }
+      // Add co-host to the event
+      const newCoHost = {
+          _id: couserId,
+          co_host_Name,
+          phone_no
+      };
 
-                  // check for invited event
-                  let invitedEvent = await InvitedeventModel.findOne({ eventId: eventId })
+      event.co_hosts.push(newCoHost);
 
+      // Save the event
+      await event.save();
 
-                  // Check if the phone number already exists among co-hosts
-                  const existPhoneNumber = event.co_hosts.find((cohost) => cohost.phone_no === phone_no);
-                  if (existPhoneNumber) {
-                      return res.status(400).json({
-                          message: `Co-host with the phone number ${phone_no} already exists`,
-                          success: false
-                      });
-                  }
+      // Check for invited event and add co-host if it exists
+      let invitedEvent = await InvitedeventModel.findOne({ eventId: eventId });
+      if (invitedEvent) {
+          invitedEvent.co_hosts.push(newCoHost);
+          await invitedEvent.save();
+      }
 
-                  // Use the user's _id as coHostId
-                  const coHostId = user._id;
-
-                  // Add co-host to the event
-                  const newCoHost = {
-                      _id: coHostId,
-                      co_host_Name,
-                      phone_no
-                  };
-
-                  event.co_hosts.push(newCoHost);
-
-                  // Add the same co-host to invitedEvent too with the same _id
-                  invitedEvent.co_hosts.push(newCoHost);
-
-                  await event.save();
-                  await invitedEvent.save();
-
-                  return res.status(200).json({
-                      success: true,
-                      message: `Co-host added successfully`
-                  });
-              } catch (error) {
-                  console.error(error);
-                  return res.status(500).json({
-                      success: false,
-                      message: 'There is a server error'
-                  });
-              }
-            };
+      return res.status(200).json({
+          success: true,
+          message: `Co-host added successfully`
+      });
+  } catch (error) {
+      console.error(error);
+      return res.status(500).json({
+          success: false,
+          message: 'Internal server error'
+      });
+  }
+};
 
 
 
@@ -489,7 +472,7 @@ const { TrustProductsEntityAssignmentsPage } = require('twilio/lib/rest/trusthub
                               
                                 try {
                                   const eventId = req.params.eventId
-                                  const co_hostId = req.params.co_hostId
+                                  const co_userId = req.params.co_userId
 
                                   // check for event 
                                   const event = await eventModel.findOne({ _id : eventId })
@@ -502,7 +485,7 @@ const { TrustProductsEntityAssignmentsPage } = require('twilio/lib/rest/trusthub
                                   }                                   
                                                                       
                                         // check for co-host existance
-                                    const exist_co_hostIndex = event.co_hosts.findIndex(co_host => co_host._id.toString() === co_hostId)
+                                    const exist_co_hostIndex = event.co_hosts.findIndex(co_host => co_host._id.toString() === co_userId)
                                     if(exist_co_hostIndex === -1)
                                     {
                                       return res.status(400).json({ 
@@ -734,7 +717,7 @@ const { TrustProductsEntityAssignmentsPage } = require('twilio/lib/rest/trusthub
                             });
                           } else if (key === 2) {
                             // Check for invited Event
-                            const invitedEvent = await InvitedeventModel.findOne({ eventId: eventId });
+                            const invitedEvent = await InvitedeventModel.findOne({ _id : eventId });
 
                             if (!invitedEvent) {
                               return res.status(400).json({ success: false, message: `Invited event not found with the eventId ${eventId}` });
@@ -872,7 +855,7 @@ const { TrustProductsEntityAssignmentsPage } = require('twilio/lib/rest/trusthub
                         const event = await eventModel.findOne({ _id: eventId });
                     
                         if (!event) {
-                          return res.status(404).json({
+                          return res.status(200).json({
                             success: false,
                             message: 'Event not found',
                           });
@@ -1185,9 +1168,6 @@ const { TrustProductsEntityAssignmentsPage } = require('twilio/lib/rest/trusthub
                                                     } 
                                                        
                                                     
-
-
-
                                             const events = await eventModel.find(filter);
                                         
                                             return res.status(200).json({
@@ -1203,36 +1183,55 @@ const { TrustProductsEntityAssignmentsPage } = require('twilio/lib/rest/trusthub
                                           }
                                         };
                 // API for delete an event
-                const deleteEvent = async (req , res)=>{
+                const deleteEvent = async (req, res) => {
                   try {
-                               const eventId = req.params.eventId
-                               // check for event
-                          const event = await eventModel.findByIdAndDelete({_id : eventId })
-                          if(!event)
-                          {
-                            return res.status(400).json({
-                                                  success : false ,
-                                                  message :  `Event not found with the given eventId`
-                            })
-                          }
-                          else
-                          {
-                            return res.status(200).json({
-                                                      success : true ,
-                                                      message : `event deleted successfully`
-                            })
-                          }
+                      const eventId = req.params.eventId;
+              
+                      // Find event, invitedEvent, and userResponseEvent
+                      const event = await eventModel.findOne({ _id: eventId });
+                      const invitedEvent = await InvitedeventModel.findOne({ _id: eventId });
+                      const userResponseEvent = await userResponseEventModel.findOne({ eventId: eventId });
+              
+                      // Check if any of the documents exist
+                      if (!event && !invitedEvent && !userResponseEvent) {
+                          return res.status(404).json({
+                              success: false,
+                              message: `Event not found with the given eventId`
+                          });
+                      }
+              
+                      // Delete event, invitedEvent, and userResponseEvent if they exist
+                      const deletePromises = [];
+                      if (event) {
+                          deletePromises.push(event.deleteOne());
+                      }
+                      if (invitedEvent) {
+                          deletePromises.push(invitedEvent.deleteOne());
+                      }
+                      if (userResponseEvent) {
+                          deletePromises.push(userResponseEvent.deleteOne());
+                      }
+              
+                      // Execute all delete operations
+                      await Promise.all(deletePromises);
+              
+                      return res.status(200).json({
+                          success: true,
+                          message: `Events deleted successfully`
+                      });
                   } catch (error) {
-                    return res.status(500).json({
-                                          success : false ,
-                                          message : 'there is an server error'
-                    })
+                      return res.status(500).json({
+                          success: false,
+                          message: 'There is a server error',
+                          error_message: error.message
+                      });
                   }
-                }                        
+              };
+                                     
             // APi for give feedback
                              const feedback = async (req ,res)=>{
                               try {
-                                    const {userId , eventId } = req.params
+                                    const {userId } = req.params
                                     const { rating , message , feedback_Type } = req.body                                    
 
                                     const requiredFields = [
@@ -1256,15 +1255,7 @@ const { TrustProductsEntityAssignmentsPage } = require('twilio/lib/rest/trusthub
                                     }
 
                                     const userName = user.fullName
-                                      // check for event existance
-                                      const event = await eventModel.findOne({ _id : eventId })
-                                      if(!event)
-                                      {
-                                        return res.status(400).json({
-                                                                   success : false ,
-                                                                    message : 'event not found'
-                                        })
-                                      }
+                                     
 
                                          // check if rating is within the range of 1 to 5
                                          if(rating < 1 || rating > 5)
@@ -1278,8 +1269,7 @@ const { TrustProductsEntityAssignmentsPage } = require('twilio/lib/rest/trusthub
                                     const feedbacks = new feedbackModel({
                                       rating ,
                                       message,
-                                      feedback_Type,
-                                      eventId : eventId ,
+                                      feedback_Type,                                      
                                       userId : userId ,
                                       userName : userName
 
@@ -1299,6 +1289,7 @@ const { TrustProductsEntityAssignmentsPage } = require('twilio/lib/rest/trusthub
                                 })
                               }
                              }
+
           // APi for delete user
                                      const deleteUser = async (req ,res)=>{
                                       try {
@@ -1362,7 +1353,7 @@ const { TrustProductsEntityAssignmentsPage } = require('twilio/lib/rest/trusthub
                   try {
                     const events = await eventModel.find({});
                     if (events.length === 0) {
-                      return res.status(400).json({
+                      return res.status(200).json({
                         success: false,
                         message: 'There are no events found',
                       });
@@ -1384,63 +1375,158 @@ const { TrustProductsEntityAssignmentsPage } = require('twilio/lib/rest/trusthub
                 };
     
     // API for get user event 
-                const getUserEvent = async (req, res) => {
-                  try {
-                      const userId = req.params.userId;
-                    // check fot userId
-                    if(!userId)
-                    {
-                      return res.status(400).json({
-                        success : false ,
-                        message : 'user Id required'
-                      })
-                    }              
-                      // Fetch events where the user is the host
-                      const created_event = await eventModel.find({ userId: userId });
-                      
-                      // Fetch events where the user is invited
-                      const invitedEvents = await InvitedeventModel.find({ hostId: userId });
-                        
-                      // Add eventType field to distinguish created events and invited events
-                      const userEventsWithEventType = created_event.map(event => ({
-                          ...event.toObject(),
-                          eventType: 1      // 1 for created event
-                      }));
-              
-                      const invitedEventsWithEventType = invitedEvents.map(event => ({
-                          ...event.toObject(),
-                          eventType: 2    // 2 for Invited event
-                      }));
-              
-                      // Merge both arrays of events
-                      const allEvents = [...userEventsWithEventType, ...invitedEventsWithEventType];
-              
-                      // Check if any events were found
-                      if (allEvents.length === 0) {
-                          return res.status(400).json({
-                              success: false,
-                              message: 'No events found for the user',
-                          });
-                      }
-              
-                      // Sort all user events by createdAt
-                      const sortedUserEvents = allEvents.sort((a, b) => b.createdAt - a.createdAt);
-              
-                      return res.status(200).json({
-                          success: true,
-                          message: 'User events',
-                          events: sortedUserEvents,
-                      });
-                  } catch (error) {
-                      return res.status(500).json({
-                          success: false,
-                          message: 'There is a server error',
-                      });
-                  }
+   
+    const getUserEvent = async (req, res) => {
+      try {
+          const userId = req.params.userId;
+          const { latest_Update, date, venue_location, event_Type, year, month ,event_type_name} = req.body;
+         
+          // check for userId
+          if (!userId) {
+              return res.status(400).json({
+                  success: false,
+                  message: 'userId required'
+              });
+          }
+  
+          const user = await userModel.findOne({ _id: userId });
+          if (!user) {
+              return res.status(400).json({
+                  success: false,
+                  message: 'User not found'
+              });
+          }
+  
+          const filter = {};
+          const filter1 = {};
+          
+          if (latest_Update) {
+              filter.updatedAt = {
+                  $gte: new Date(latest_Update),
               };
+          }
+  
+          if (venue_location) {
+            filter.city_Name = venue_location; 
+            filter1.city_Name = venue_location; 
+        }
+  
+          if (event_Type) {
+              filter.event_Type = event_Type;
+          }
+  
+          
+                       
+          if (month && year) {
+              // Initialize an array to store all the dates
+              const dates = [];
+              const filter1Dates = []; // Array to store dates in YYYY-MM-DD format
+          
+              // Generate dates from 01 to 31 and store them
+              for (let i = 1; i <= 31; i++) {
+                  const date = ('0' + i).slice(-2); // Add leading zeros
+                  const Month_year = `${date} ${month}, ${year}`;
+                  const formattedDate = `${year}-${('0' + (new Date(Date.parse(month + ' 1, 2000')).getMonth() + 1)).slice(-2)}-${date}`; // Convert to YYYY-MM-DD format
+                  dates.push(Month_year);
+                  filter1Dates.push(formattedDate);
+              }
+                  
+              // Set the filter to match any of the generated dates
+              filter['venue_Date_and_time.date'] = dates
+              
+              // Now you can use this filter to retrieve events
+              // Build the query
+              const query = eventModel.find(filter);
+              
+              // Execute the query
+              query.exec()
+                  .then(events => {
+                      // Process events
+                  })
+                  .catch(err => {
+                      // Handle error
+                  });
+          
+              // Now you can use filter1Dates array to filter based on YYYY-MM-DD format
+              filter1['venue_Date_and_time.date'] =  filter1Dates 
+              
+              // Build the query for filter1
+              const query1 = InvitedeventModel.find(filter1);
+              
+              // Execute the query for filter1
+              query1.exec()
+                  .then(events => {
+                      // Process events for filter1
+                  })
+                  .catch(err => {
+                      // Handle error for filter1
+                  });
+          }        
+          
+          // Fetch events where the user is the host
+          const created_event = await eventModel.find({ userId: userId, ...filter });
+                
+          // Fetch events where the user is invited
+          const invitedEvents = await InvitedeventModel.find({ 'Guests.phone_no': user.phone_no, ...filter1 });
+  
+          // Add eventType field to distinguish created events and invited events
+          const userEventsWithEventType = created_event.map(event => ({
+              ...event.toObject(),
+              event_type_name: 1 // 1 for created event
+          }));
+  
+          const invitedEventsWithEventType = invitedEvents.map(event => ({
+              ...event.toObject(),
+              event_type_name: 2 // 2 for Invited event
+          }));
+  
+          // Merge both arrays of events
+          let allEvents = [...userEventsWithEventType, ...invitedEventsWithEventType];
+  
+          // Check if any events were found
+          if (allEvents.length === 0) {
+              return res.status(200).json({
+                  success: false,
+                  message: 'No events found for the user',
+              });
+          }
+  
+          // Sort all user events by createdAt
+          if (date === '1') {
+              allEvents = allEvents.sort((a, b) => b.createdAt - a.createdAt); 
+          }
+  
+          let filteredEvents = allEvents;
+  
+          // Apply filtering based on event_type_name if provided
+          if (event_type_name && (event_type_name === '1' || event_type_name === '2')) {
+              filteredEvents = allEvents.filter(event => event.event_type_name === parseInt(event_type_name));
+          }
+  
+          return res.status(200).json({
+              success: true,
+              message: 'User events',
+              events: filteredEvents,
+          });
+      } catch (error) {
+          console.error(error);
+          return res.status(500).json({
+              success: false,
+              message: 'There is a server error',
+          });
+      }
+  };
+  
+  
+
+  
+  
+    
+  
+  
               
 
-                              /*  Contact Us */
+                                           /*  Contact Us */
   // API for contact us
                     const contactUsPage = async(req , res) =>{
                       try {
@@ -1534,32 +1620,33 @@ const { TrustProductsEntityAssignmentsPage } = require('twilio/lib/rest/trusthub
               // Check if the event date is expired
               const eventDate = new Date(event.venue_Date_and_time[0].date);
               if (eventDate < today) {
-                  return res.status(400).json({
+                  return res.status(200).json({
                       success: false,
                       message: "Event date is expired so you can't send invitations.",
                   });
               }
       
               // Check for existing invited event
-              const existInvitedEvent = await InvitedeventModel.findOne({ eventId });
+              const existInvitedEvent = await InvitedeventModel.findOne({ _id : eventId });
               if (existInvitedEvent) {
-                  return res.status(400).json({ success: true, message: 'You already invite guests for this event.' });
+                  return res.status(200).json({ success: true, message: 'You already invite guests for this event.' });
               }
       
               // Create invitations object
               const invitation = {
-                  hostId: event.userId,
-                  eventId: eventId,
-                  hostName: event.userName,
-                  event_title: event.title,
-                  event_description: event.description,
+                  userId: event.userId,
+                  _id: event._id,
+                  userName: event.userName,
+                  title: event.title,
+                  description: event.description,
                   event_Type: event.event_Type,
                   co_hosts: event.co_hosts,
                   Guests: event.Guests,
                   images: event.images,
                   event_status: event.event_status,
+                  event_key : event.event_key,
                   venue_Date_and_time: event.venue_Date_and_time,
-                  event_status: InvitedeventModel.schema.path('event_status').getDefault(),
+                  // event_status: InvitedeventModel.schema.path('event_status').getDefault(),
               };
       
               // Populate Guests array with default status
@@ -1593,6 +1680,13 @@ const { TrustProductsEntityAssignmentsPage } = require('twilio/lib/rest/trusthub
                           description: event.description,
                           userId: user._id,
                           phone_no: guest.phone_no,
+                          event_image: event.images[0].length > 0
+                          ? event.images[0]
+                          : null,
+                          event_location: event.venue_Date_and_time.length > 0 && event.venue_Date_and_time[0].venue_location
+                          ? event.venue_Date_and_time[0].venue_location
+                          : null,
+
                           message: `Hello, you are invited to ${event.title} by ${event.userName}`
                       });
                   } else {
@@ -1623,6 +1717,7 @@ const { TrustProductsEntityAssignmentsPage } = require('twilio/lib/rest/trusthub
               res.status(500).json({
                   success: false,
                   message : 'SERVER ERROR',
+                  error_message : error.message
               });
           }
       };
@@ -1662,7 +1757,55 @@ const { TrustProductsEntityAssignmentsPage } = require('twilio/lib/rest/trusthub
         }
     };             
     
-
+    const getAllGuest_of_invitation = async (req, res) => {
+      try {
+        const eventId = req.params.eventId;
+    
+        // Check if eventId is provided
+        if (!eventId) {
+          return res.status(400).json({
+            success: false,
+            message: 'Event Id required',
+          });
+        }
+    
+        // Check if the event exists in the event model
+        const event = await eventModel.findOne({ _id: eventId });
+    
+        if (!event) {
+          return res.status(200).json({
+            success: false,
+            message: 'Event not found in event model',
+          });
+        }
+    
+        // Check if the invitation event exists in the Invitation table
+        const invitationEvent = await InvitedeventModel.findOne({ _id : eventId });
+    
+        if (!invitationEvent) {
+          return res.status(200).json({
+            success: false,
+            message: 'there is no invitation for the eventId',
+          });
+        }
+    
+              
+        // Extract the list of guests from the Guests array
+        const guestsList = invitationEvent.Guests;
+    
+        return res.status(200).json({
+          success: true,
+          message : 'Invited guests Lists',
+          guests_list: guestsList,
+        });
+      } catch (error) {
+        console.error(error);
+        return res.status(500).json({
+          success: false,
+          serverErrorMessage: 'Server Error',
+        });
+      }
+    };
 
            
   
@@ -1696,9 +1839,9 @@ const { TrustProductsEntityAssignmentsPage } = require('twilio/lib/rest/trusthub
                             });
                         
                             if (invitedEvents.length === 0) {
-                              return res.status(400).json({
+                              return res.status(200).json({
                                 success: false,
-                                userInvitedMessage: 'user not invited to any event',
+                                userInvitedMessage: 'you not invited to any event',
                               });
                             }
                         
@@ -1794,9 +1937,9 @@ const { TrustProductsEntityAssignmentsPage } = require('twilio/lib/rest/trusthub
             }
             if (event_Type) {
               existingEvent.event_Type = event_Type;
-            }
-            existingEvent.event_key = event_key
-            await existingEvent.save();
+            }           
+            
+
             if (event_key === 1) {
               
               const venueArrayLength = existingEvent.venue_Date_and_time.length;
@@ -1848,15 +1991,26 @@ const { TrustProductsEntityAssignmentsPage } = require('twilio/lib/rest/trusthub
             else if (event_key === 2) {
               // Initialize venue_details as an empty array
               let venue_details = [];
-               
+                   
               // If venue_Date_and_time is provided, process and set the details
               if (venue_Date_and_time) {
                 if (venue_Date_and_time !== '') {
                   venue_details = JSON.parse(venue_Date_and_time);
                 }
               }
+                  if(existingEvent.event_key === 1 || existingEvent.event_key === 0)
+                  {
+                    existingEvent.venue_Date_and_time = [];
+                    existingEvent.venue_Date_and_time.push(...venue_details);
+                  }
+                  else
+                  {
+                    
+                    existingEvent.venue_Date_and_time.push(...venue_details);
+                  }
+               
               // Push multiple data at a time to venue_Date_and_time array
-              existingEvent.venue_Date_and_time.push(...venue_details);
+              
               existingEvent.event_key = event_key
               await existingEvent.save();
             } else {
@@ -1894,7 +2048,7 @@ const { TrustProductsEntityAssignmentsPage } = require('twilio/lib/rest/trusthub
                               const event = await eventModel.findById(eventId);
                           
                               if (!event) {
-                                return res.status(404).json({
+                                return res.status(200).json({
                                   success: false,
                                   message: 'Event not found',
                                 });
@@ -1927,21 +2081,21 @@ const { TrustProductsEntityAssignmentsPage } = require('twilio/lib/rest/trusthub
                               }
 
                                     const AllInvited_Events = await InvitedeventModel.find({ 
-                                          hostId : userId
+                                          userId : userId
 
                                     })
 
                                     if(!AllInvited_Events)
                                     {
-                                      return res.status(400).json({
+                                      return res.status(200).json({
 
                                                success : false ,
-                                               eventExistanceMessage : 'there is no invited events here ..!'
+                                               message : 'there is no invited events here ..!'
                                       })
                                     }
                                           return res.status(200).json({
                                                        success : true ,
-                                                        successMessage : 'all Invited Events' ,
+                                                        message : 'all Invited Events' ,
                                                         all_Invited_Events : AllInvited_Events
                                           })
                                   } catch (error) {
@@ -1958,7 +2112,7 @@ const { TrustProductsEntityAssignmentsPage } = require('twilio/lib/rest/trusthub
                                        const event = await eventModel.findOne({ _id : eventId })
                                        if(!event)
                                        {
-                                         return res.status(400).json({
+                                         return res.status(200).json({
                                                                  success : false ,
                                                                  message : 'event not found'
                                          })
@@ -1980,188 +2134,213 @@ const { TrustProductsEntityAssignmentsPage } = require('twilio/lib/rest/trusthub
                                }              
                            
 // API for give response to Invited event on the behalf of user
-                          const userRespondToInvitedEvent = async (req, res) => {
-                            try {
-                              const eventId = req.params.eventId;
-                              const { response, event_title, selected_subEvent_Names, phone_no } = req.body;
+const userRespondToInvitedEvent = async (req, res) => {
+  try {
+    const eventId = req.params.eventId;
+    const { response, event_title, selected_subEvent_Names, phone_no } = req.body;
 
-                              // Check if the event exists
-                              const invitedEvent = await InvitedeventModel.findOne({ eventId });
+    // Check if the event exists
+    const invitedEvent = await InvitedeventModel.findOne({ _id : eventId });
 
-                              if (!invitedEvent) {
-                                return res.status(400).json({
-                                  success: false,
-                                  eventMessage: 'Event not found',
-                                });
-                              }
+    if (!invitedEvent) {
+      return res.status(400).json({
+        success: false,
+        eventMessage: 'Event not found',
+      });
+    }
 
-                              // Now check if the user exists in userModel using the provided phone_no
-                              const user = await userModel.findOne({ phone_no });
+    // Now check if the user exists in userModel using the provided phone_no
+    const user = await userModel.findOne({ phone_no });
 
-                              if (!user) {
-                                return res.status(400).json({
-                                  success: false,
-                                  userExistanceMessage: 'User not found ',
-                                });
-                              }
-                                  // Check if the user has already responded to the event
-                                const userResponse = await userResponseEventModel.findOne({
-                                  eventId:eventId ,
-                                  'Guests.phone_no': user.phone_no,
-                                });
+    if (!user) {
+      return res.status(400).json({
+        success: false,
+        userExistanceMessage: 'User not found ',
+      });
+    }
+        // Check if the user has already responded to the event
+      const userResponse = await userResponseEventModel.findOne({
+        eventId : eventId ,
+        'Guests.phone_no': user.phone_no,
+      });
 
-                                if (userResponse) {
-                                  return res.status(400).json({
-                                    success: false,
-                                    responseMessage: 'You already responded to the event',
-                                  });
-                                }
-                              // Create a single response record for the entire event
-                              const responseMapping = {
-                                yes: 'accept',
-                                no: 'reject',
-                                maybe: 'undecided',
-                                'yes-multiple': 'accept-all',
-                                'some-multiple': 'accept-some',
-                                'no-multiple': 'reject',
-                              };
+      if (userResponse) {
+        return res.status(400).json({
+          success: false,
+          responseMessage: 'You already responded to the event',
+        });
+      }
+    // Create a single response record for the entire event
+    const responseMapping = {
+      yes: 'accept',
+      no: 'reject',
+      maybe: 'undecided',
+      'yes-multiple': 'accept-all',
+      'some-multiple': 'accept-some',
+      'no-multiple': 'reject',
+    };
 
-                              const venueStatus = responseMapping[response] === 'accept' || responseMapping[response] === 'some' ? 1 : responseMapping[response] === 'no' ? 2 : 0;
+    const venueStatus = responseMapping[response] === 'accept' || responseMapping[response] === 'some' ? 1 : responseMapping[response] === 'no' ? 2 : 0;
 
-                              // Check if there is an existing record in userResponseEventModel for the same InvitedEventId
-                              const existingUserResponse = await userResponseEventModel.findOne({
-                                InvitedEventId: invitedEvent._id,
-                              });
+    // Check if there is an existing record in userResponseEventModel for the same InvitedEventId
+    const existingUserResponse = await userResponseEventModel.findOne({
+      InvitedEventId: invitedEvent._id,
+    });
 
-                              if (existingUserResponse) {
-                                // Update the existing record
-                                existingUserResponse.Guests.push({
-                                  Guest_Name: user.fullName,
-                                  phone_no: user.phone_no,
-                                  guest_status: responseMapping[response] === 'accept' ? 0 : responseMapping[response] === 'reject' ? 1 : 0,
-                                  venue: invitedEvent.venue_Date_and_time.length === 1 ? invitedEvent.venue_Date_and_time.map((venueDetails, index) => ({
-                                    sub_event_title: venueDetails.sub_event_title,
-                                    venue_status: venueStatus,
-                                  })) : (selected_subEvent_Names && selected_subEvent_Names.length > 0) ? selected_subEvent_Names.map((sub_event_title, index) => ({
-                                    sub_event_title: sub_event_title,
-                                    venue_status: venueStatus,
-                                  })) : [],
-                                  eventId: eventId, 
-                                });
+    if (existingUserResponse) {
+      // Update the existing record
+      existingUserResponse.Guests.push({
+        Guest_Name: user.fullName,
+        phone_no: user.phone_no,
+        status: responseMapping[response] === 'accept' ? 0 : responseMapping[response] === 'reject' ? 1 : responseMapping[response] === 'accept-some' ? 0 : 3,
+        venue: invitedEvent.venue_Date_and_time.length === 1 ? invitedEvent.venue_Date_and_time.map((venueDetails, index) => ({
+          sub_event_title: venueDetails.sub_event_title,
+          venue_status: venueStatus,
+        })) : (selected_subEvent_Names && selected_subEvent_Names.length > 0) ? selected_subEvent_Names.map((sub_event_title, index) => ({
+          sub_event_title: sub_event_title,
+          venue_status: venueStatus,
+        })) : [],
+        eventId: eventId, 
+      });
 
-                                // Update each sub_event_status based on the user's response
-                                existingUserResponse.Guests.forEach(guest => {
-                                  guest.venue.forEach(venue => {
-                                    venue.venue_status = venueStatus;
-                                  });
-                                });
+      // Update each sub_event_status based on the user's response
+      existingUserResponse.Guests.forEach(guest => {
+        guest.venue.forEach(venue => {
+          venue.venue_status = venueStatus;
+        });
+      });
 
-                                // Save the updated record
-                                await existingUserResponse.save();
-                              } else {
-                                // Create a new record if it doesn't exist
-                                const newUserResponse = new userResponseEventModel({
-                                  hostId: invitedEvent.hostId,
-                                  hostName: invitedEvent.hostName,
-                                  InvitedEventId: invitedEvent._id, // Add the InvitedEventId
-                                  eventId: eventId, // Add the eventId
-                                  event_title: invitedEvent.venue_Date_and_time.length === 1 ? event_title : invitedEvent.event_title,
-                                  event_description: invitedEvent.event_description,
-                                  event_Type: invitedEvent.venue_Date_and_time.length === 1 ? 'single' : 'multiple',
-                                  Guests: [
-                                    {
-                                      Guest_Name: user.fullName,
-                                      phone_no: user.phone_no,
-                                      guest_status: responseMapping[response] === 'accept' ? 0 : responseMapping[response] === 'reject' ? 1 : 0,
-                                      venue: invitedEvent.venue_Date_and_time.length === 1 ? invitedEvent.venue_Date_and_time.map((venueDetails, index) => ({
-                                        sub_event_title: venueDetails.sub_event_title,
-                                        venue_status: venueStatus,
-                                      })) : (selected_subEvent_Names && selected_subEvent_Names.length > 0) ? selected_subEvent_Names.map((sub_event_title, index) => ({
-                                        sub_event_title: sub_event_title,
-                                        venue_status: venueStatus,
-                                      })) : [],
-                                    },
-                                  ],
-                                  images: invitedEvent.images,
-                                });
+      // Save the updated record
+      await existingUserResponse.save();
+      invitedEvent.Guests.forEach(guest => {
+        if (guest.phone_no === user.phone_no) {
+          guest.status = responseMapping[response] === 'accept' ? 0 : responseMapping[response] === 'reject' ? 1 : responseMapping[response] === 'accept-some' ? 0 : 3;
+        }
+      });
+    
+      // Save the updated invitedEvent
+      await invitedEvent.save()
+    } else {
+      // Create a new record if it doesn't exist
+      const newUserResponse = new userResponseEventModel({
+        hostId: invitedEvent.hostId,
+        hostName: invitedEvent.hostName,
+        InvitedEventId: invitedEvent._id, // Add the InvitedEventId
+        eventId: eventId, // Add the eventId
+        event_title: invitedEvent.venue_Date_and_time.length === 1 ? event_title : invitedEvent.event_title,
+        event_description: invitedEvent.event_description,
+        event_Type: invitedEvent.event_key,
+        Guests: [
+          {
+            Guest_Name: user.fullName,
+            phone_no: user.phone_no,
+            status: responseMapping[response] === 'accept' ? 0 : responseMapping[response] === 'reject' ? 1 : responseMapping[response] === 'accept-some' ? 0 : 3,
+            venue: invitedEvent.venue_Date_and_time.length === 1 ? invitedEvent.venue_Date_and_time.map((venueDetails, index) => ({
+              sub_event_title: venueDetails.sub_event_title,
+              venue_status: venueStatus,
+            })) : (selected_subEvent_Names && selected_subEvent_Names.length > 0) ? selected_subEvent_Names.map((sub_event_title, index) => ({
+              sub_event_title: sub_event_title,
+              venue_status: venueStatus,
+            })) : [],
+          },
+        ],
+        images: invitedEvent.images,
+      });
+    
+      // Save the new record
+      await newUserResponse.save();
+      invitedEvent.Guests.forEach(guest => {
+        if (guest.phone_no === user.phone_no) {
+          guest.status = responseMapping[response] === 'accept' ? 0 : responseMapping[response] === 'reject' ? 1 : responseMapping[response] === 'accept-some' ? 0 : 3;
+        }
+      });
+    
+      // Save the updated invitedEvent
+      await invitedEvent.save();
+    }
+        
+    return res.status(200).json({
+      success: true,
+      responseMessage: 'Event response saved successfully',
+    });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({
+      success: false,
+      serverErrorMessage: 'Server Error',
+    });
+  }
+};
 
-                                // Save the new record
-                                await newUserResponse.save();
-                              }
-                                  
-                              return res.status(200).json({
-                                success: true,
-                                responseMessage: 'Event response saved successfully',
-                              });
-                            } catch (error) {
-                              console.error(error);
-                              return res.status(500).json({
-                                success: false,
-                                serverErrorMessage: 'Server Error',
-                              });
-                            }
-                          };
+
 
 
         // APi for get all Guests with there response for invitation
-                            const getAllGuest_with_Response = async (req, res) => {
-                              try {
-                                const eventId = req.params.eventId;
-                            
-                                // Check if eventId is provided
-                                if (!eventId) {
-                                  return res.status(400).json({
-                                    success: false,
-                                    message: 'Event Id required',
-                                  });
-                                }
-                            
-                                // Check if the event exists in the event model
-                                const event = await eventModel.findOne({ _id: eventId });
-                            
-                                if (!event) {
-                                  return res.status(400).json({
-                                    success: false,
-                                    message: 'Event not found in event model',
-                                  });
-                                }
-                            
-                                // Check if the invitation event exists in the Invitation table
-                                const invitationEvent = await InvitedeventModel.findOne({ eventId });
-                            
-                                if (!invitationEvent) {
-                                  return res.status(400).json({
-                                    success: false,
-                                    message: 'there is no invitation for the eventId',
-                                  });
-                                }
-                            
-                                // Check if there are guest responses for the invitation event
-                                const guests_ResponseEvent = await userResponseEventModel.findOne({ eventId });
-                            
-                                if (!guests_ResponseEvent) {
-                                  return res.status(400).json({
-                                    success: false,
-                                    message: 'There is no guests response exist for the invitation',
-                                  });
-                                }
-                            
-                                // Extract the list of guests from the Guests array
-                                const guestsList = guests_ResponseEvent.Guests;
-                            
-                                return res.status(200).json({
-                                  success: true,
-                                  message : 'Invitation response guests Lists',
-                                  guests_list: guestsList,
-                                });
-                              } catch (error) {
-                                console.error(error);
-                                return res.status(500).json({
-                                  success: false,
-                                  serverErrorMessage: 'Server Error',
-                                });
-                              }
-                            };
+        const getAllGuest_with_Response = async (req, res) => {
+          try {
+            const eventId = req.params.eventId;
+            const { statuses } = req.body;
+        
+            // Check if eventId is provided
+            if (!eventId) {
+              return res.status(400).json({
+                success: false,
+                message: 'Event Id required',
+              });
+            }
+        
+            // Check if the event exists in the event model
+            const event = await eventModel.findOne({ _id: eventId });
+        
+            if (!event) {
+              return res.status(404).json({
+                success: false,
+                message: 'Event not found',
+              });
+            }
+        
+            // Check if the invitation event exists in the Invitation table
+            const invitationEvent = await InvitedeventModel.findOne({ _id: eventId });
+        
+            if (!invitationEvent) {
+              return res.status(404).json({
+                success: false,
+                message: 'Invitation event not found',
+              });
+            }
+        
+            // Get guests associated with the invitation event
+            let guests = invitationEvent.Guests;
+        
+            // Apply filters based on the statuses provided
+            let filteredGuests = guests;
+            if (statuses && statuses.length > 0) {
+              filteredGuests = guests.filter(guest => statuses.includes(guest.status));
+            }
+        
+            // Prepare response with required fields
+            const guestsResponse = filteredGuests.map(guest => ({
+              Guest_Name: guest.Guest_Name,
+              phone_no: guest.phone_no,
+              status: guest.status,
+            }));
+        
+            return res.status(200).json({
+              success: true,
+              message: 'Invitation response guests Lists',
+              guests_list: guestsResponse,
+            });
+          } catch (error) {
+            console.error(error);
+            return res.status(500).json({
+              success: false,
+              serverErrorMessage: 'Server Error',
+            });
+          }
+        };
+        
+        
+        
                             
                     // Api for get response event
                   const getallResponseEvent = async ( req , res )=> {
@@ -2171,7 +2350,7 @@ const { TrustProductsEntityAssignmentsPage } = require('twilio/lib/rest/trusthub
                           const responseEvent = await userResponseEventModel.find({})
                           if(!responseEvent)
                           {
-                            return res.status(400).json({
+                            return res.status(200).json({
                                       success : false ,
                                       message : 'response event not found'
                             })
@@ -2400,8 +2579,17 @@ const { TrustProductsEntityAssignmentsPage } = require('twilio/lib/rest/trusthub
                 eventIdRequired: 'Event Id Required',
             });
         }
+          const created_event = await eventModel.findOne({ _id : eventId })
+          if (!created_event) {
+            return res.status(200).json({
+                success: false,
+                message: 'event not found',
+            });
+        }
+             const userId = created_event.userId
 
         const event = await eventImageModel.findOne({ eventId });
+       
 
         if (!event) {
             return res.status(200).json({
@@ -2432,8 +2620,10 @@ const { TrustProductsEntityAssignmentsPage } = require('twilio/lib/rest/trusthub
                 success: true,
                 message: 'Album Details',
                 album_name,
-                album_id,               
-                image_entries,
+                album_id,   
+                userId,            
+                image_entries
+               
             });
         }
     } catch (error) {
@@ -2723,8 +2913,10 @@ const { TrustProductsEntityAssignmentsPage } = require('twilio/lib/rest/trusthub
                               'venue_Date_and_time.date': formattedDates,
                           });
       
-                          created_event_Details.push(...created_events);
-                          invited_event_details.push(...invitedEvents);
+                          created_event_Details.push(...created_events.map(event => ({ ...event._doc, event_type_name: 1 })));
+                          invited_event_details.push(...invitedEvents.map(event => ({ ...event._doc, event_type_name: 2 })));
+
+                        
       
                           eventDetails.push({
                               date: formattedDate,
@@ -2740,13 +2932,12 @@ const { TrustProductsEntityAssignmentsPage } = require('twilio/lib/rest/trusthub
                           });
                       }
                   }
-      
+                  const allEvents = [...created_event_Details, ...invited_event_details];
                   return res.status(200).json({
                       success: true,
                       message: 'Event Details',
                       eventDetails: eventDetails,
-                      created_event_Details: created_event_Details,
-                      invited_event_details: invited_event_details,
+                      allEvents : allEvents
                   });
               } else if (month && year) {
                   // Handle logic for monthly events
@@ -2782,8 +2973,9 @@ const { TrustProductsEntityAssignmentsPage } = require('twilio/lib/rest/trusthub
                           'venue_Date_and_time.date': formattedDates,
                       });
       
-                      created_event_Details.push(...events);
-                      invited_event_details.push(...invitedEvents);
+                      created_event_Details.push(...events.map(event => ({ ...event._doc, event_type_name: 1 })));
+                      invited_event_details.push(...invitedEvents.map(event => ({ ...event._doc, event_type_name: 2 })));
+      
       
                       eventDetails.push({
                           date: formattedDate,
@@ -2791,13 +2983,12 @@ const { TrustProductsEntityAssignmentsPage } = require('twilio/lib/rest/trusthub
                           invited_eventCount: invitedEvents.length,
                       });
                   }
-      
+                  const allEvents = [...created_event_Details, ...invited_event_details];
                   return res.status(200).json({
                       success: true,
                       message: 'Event Details',
                       eventDetails: eventDetails,
-                      created_event_Details: created_event_Details,
-                      invited_event_details: invited_event_details,
+                      allEvents : allEvents
                   });
               } else {
                   // Handle case where neither date nor month/year is provided
@@ -3385,7 +3576,7 @@ const { TrustProductsEntityAssignmentsPage } = require('twilio/lib/rest/trusthub
   
           // Check if no notifications are found
           if (combinedNotifications.length === 0) {
-              return res.status(400).json({
+              return res.status(200).json({
                   success: false,
                   message: 'No notifications found for the user'
               });
@@ -3395,13 +3586,17 @@ const { TrustProductsEntityAssignmentsPage } = require('twilio/lib/rest/trusthub
           return res.status(200).json({
               success: true,
               message: 'User notifications',
+              Notification_count : combinedNotifications.length,
               notifications: combinedNotifications.map(notification => ({
                   notification_id: notification._id,
                   userId: notification.userId,
                   message: notification.message,
-                  title: notification.title,
-                  description: notification.description,
-                  eventId: notification.eventId
+                  title: notification.title,                  
+                  event_image : notification.event_image,
+                  date : notification.createdAt,
+                  event_location : notification.event_location
+
+
               }))
           });
       } catch (error) {
@@ -3413,6 +3608,54 @@ const { TrustProductsEntityAssignmentsPage } = require('twilio/lib/rest/trusthub
       }
   };
   
+  
+  const deleteNotificationById = async (req, res) => {
+    try {
+        const notification_id = req.params.notification_id;
+
+        // Check for notification_id
+        if (!notification_id) {
+            return res.status(400).json({
+                success: false,
+                message: 'Notification ID is required'
+            });
+        }
+
+        // Check for notification in NotificationModel
+        let notification = await NotificationModel.findOne({ _id: notification_id });
+
+        // Check for notification in UsersNotificationModel if not found in NotificationModel
+        if (!notification) {
+            notification = await UsersNotificationModel.findOne({ _id: notification_id });
+        }
+
+        if (notification) {
+            // Delete the notification from the database
+            await notification.deleteOne();
+            
+            return res.status(200).json({
+                success: true,
+                message: 'Notification deleted successfully'
+            });
+        } else {
+            return res.status(200).json({
+                success: false,
+                message: 'Notification not found'
+            });
+        }
+    } catch (error) {
+        return res.status(500).json({
+            success: false,
+            message: 'Server error',
+            error_message: error.message
+        });
+    }
+};
+
+
+
+
+
 
   
         
@@ -3428,5 +3671,5 @@ const { TrustProductsEntityAssignmentsPage } = require('twilio/lib/rest/trusthub
                      delete_Guest , getallResponseEvent , updateUser , numberExistance , getSubEventOf_Event , getUser , deleteAllEvents ,
                      createEventAlbum , getAllAlbum , getParticularAlbum , addImages_in_Album , rename_album , deleteAlbum , deleteImage ,
                      get_Event_on_date , create_feed , get_allfeeds , delete_user_feed , like_unlike_feed , add_comments , get_all_comments ,
-                     viewFeed , getEventsByMonth , getNotification_of_user 
+                     viewFeed , getEventsByMonth , getNotification_of_user , getAllGuest_of_invitation , deleteNotificationById
 }

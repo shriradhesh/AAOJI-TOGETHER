@@ -434,10 +434,10 @@ const login_Admin = async (req, res) => {
         // APi for get Demo event by admin Id
                                                 const getDemoEvent = async (req ,res)=>{
                                                     try {
-                                                    
+                                                    const adminId = req.params.adminId
                                                         // check for event
                                                         const event = await eventModel.find({
-                                                            event_Type: 'Demo' 
+                                                            adminId : adminId
                                                         })
                                                         return res.status(200).json({
                                                             success: true,
@@ -462,9 +462,9 @@ const getAllCollections = async (req, res) => {
         const allCollections = await bookmarkModel.find({ eventId  });
 
         if (!allCollections || allCollections.length === 0) {
-            return res.status(400).json({
+            return res.status(200).json({
                 success: false,
-                existanceMessage: 'No collections found',
+                message: 'No collections found',
             });
         } else {
             const collectionDetails = allCollections.map(collections => {
@@ -482,7 +482,7 @@ const getAllCollections = async (req, res) => {
 
             res.status(200).json({
                 success: true,
-                success_message: 'All bookmark collections',
+                message: 'All bookmark collections',
                 allCollections: collectionDetails,
             });
         }
@@ -491,7 +491,7 @@ const getAllCollections = async (req, res) => {
         console.error(error);
         return res.status(500).json({
             success: false,
-            serverError: 'Server error',
+            message: 'Server error',
         });
     }
 };
@@ -533,46 +533,7 @@ const getAllCollections = async (req, res) => {
                                         }
 
 
-              // API for get all feedbacks of events 
-                            const getFeedbacksofEvent = async (req , res )=>{
-                                try {
-                                    const eventId = req.params.eventId
-                                    // check for event
-                                    const event = await eventModel.findOne({ _id : eventId })
-                                    if(!event)
-                                    {
-                                        return res.status(400).json({
-                                                                success : false ,
-                                                                message : ' event not found '
-                                        })
-                                    }
-                                    // check for feedbacks
-                                    const feedback = await feedbackModel.find({})
-                                    if(!feedback)
-                                    {
-                                    return res.status(400).json({
-                                                            success : false,
-                                                            message : 'there is no feedback yet'
-                                    })
-                                    }
-                                    else
-                                    {
-                                    return res.status(200).json({
-                                                                success : true ,
-                                                                message :`all feedbacks of event : ${eventId}`,
-                                                                feedback_details : feedback                                                                
-                                    })
-                                    }
-
-                                } catch (error) {
-                                
-                                return res.status(500).json({
-                                                            success : false ,
-                                                            message : ' there is an server error '
-                                })
-                                }
-                            }
-                                            
+                    
               // API for check and Toggle user event status
                   const checkAndToggleStatus = async (req ,res)=>{
                     try {
@@ -602,50 +563,7 @@ const getAllCollections = async (req, res) => {
                         })
                     }
                   }    
-    // API for delete feedback of event by feedback Id
-                            const deleteFeedback_OfEvent = async  (req , res)=>{
-                                try {
-                                       const {eventId , feedbackId } = req.params
-                                       
-                                       // check for event existance
-                                    const event = await eventModel.findOne({ _id : eventId })
-                                    if(!event)
-                                     {
-                                        return res.status(400).json({
-                                                     success : false ,
-                                                     message : 'event Not Found'
-                                        })
-                                     }
-                                    
-                            // check for feedback
-                              const feedback  = await feedbackModel.findOne({
-                                                            _id : feedbackId ,
-                                                            eventId : eventId
-                              })
-
-                              if(!feedback)
-                              {
-                                return res.status(400).json({
-                                                     success : false ,
-                                                     message : `there is no feedback in event by the given feedbackId : ${feedbackId}`
-                                })
-                              }
-                              else
-                              {
-                                      await feedbackModel.findByIdAndDelete(feedbackId)
-                                      return res.status(200).json({
-                                                         success : true ,
-                                                         message : 'feedback deleted successfully'
-                                      })
-                              }
-                                    
-                                } catch (error) {
-                                    return res.status(500).json({
-                                                      success : false ,
-                                                      message : 'server error'
-                                    })
-                                }
-                            }    
+    
         
         // APi for term and condition
         const termAndCondition = async (req, res) => {
@@ -941,9 +859,9 @@ const getAllCollections = async (req, res) => {
 // API to send Notification to all user
                                 const sendNotification_to_allUser = async (req, res) => {
                                     try {
-                                    const { title, message } = req.body;
+                                    const { title, message , event_location} = req.body;
                                 
-                                    const requiredFields = ['title', 'message'];
+                                    const requiredFields = ['title', 'message','event_location'];
                                 
                                     for (const field of requiredFields) {
                                         if (!req.body[field]) {
@@ -984,6 +902,7 @@ const getAllCollections = async (req, res) => {
                                         userId: user._id,
                                         title,
                                         message,
+                                        event_location,
                                         userEmail: user.email,
                                         }
                                     }))
@@ -992,7 +911,9 @@ const getAllCollections = async (req, res) => {
                                     const savedNotification = await UsersNotificationModel.create({
                                         title,
                                         message,
-                                        date : new Date()
+                                        date : new Date(),
+                                        event_image: "0",
+                                        event_location: event_location
                                     });
                                 
                                     return res.status(200).json({
@@ -1011,10 +932,10 @@ const getAllCollections = async (req, res) => {
   // Api to send notification to particular user
                                         const sendNotification_to_user = async (req, res) => {
                                             try {
-                                                const { userId, title, message } = req.body;
+                                                const { userId, title, message , event_location } = req.body;
 
                                                 // Validate input fields
-                                                const requiredFields = [ 'title', 'message'];
+                                                const requiredFields = [ 'title', 'message','event_location'];
 
                                                 for (const field of requiredFields) {
                                                     if (!req.body[field]) {
@@ -1061,7 +982,10 @@ const getAllCollections = async (req, res) => {
                                                     title,
                                                     message,
                                                     date: new Date(),
-                                                    userName : userName
+                                                    userName : userName,
+                                                    event_image: "0",
+                                                    event_location: event_location
+
                                             
                                                 });
 
@@ -1323,17 +1247,66 @@ const getAllCollections = async (req, res) => {
                                 }
                             };
                             
-                                     
+      // Api for get all Details of DashBorad
+                   const all_Details = async ( req ,res)=>{
+                    try {
+                            // check for all users 
+                    const users = await userModel.find({ })
+                        if(!users)
+                        {
+                            return res.status(400).json({
+                                     success : false ,
+                                     users_message : 'users details not found'
+                            })
+                        } 
+                        // check for all Events
+                    const events = await eventModel.find({ })
+                    if(!events)
+                    {
+                        return res.status(400).json({
+                              success : false ,
+                              event_message : 'event details not found'
+                        })
+                    }
+
+                      // check for feedbacks
+
+                         const allFeedbacks = await feedbackModel.find({ })
+                         if(!allFeedbacks)
+                         {
+                            return res.status({
+                                 success : false ,
+                                 feedback_message : 'feedback details not found'
+                            })
+                         }
+
+                        return res.status(200).json({
+                               success : true ,
+                               message : 'all Details count',
+                               user_count : users.length,
+                               event_count : events.length,
+                               feedback_count : allFeedbacks.length
+
+                        })
+                            
+                    } catch (error) {
+                        return res.status(500).json({
+                                   success : false ,
+                                   serverErrorMessage : 'server error',
+                                    error_message : error.message
+                        })
+                    }
+                   }                     
                                    
 
 
         module.exports = { login_Admin  , changePassword , forgetPassToken , reset_password ,
-                               changeProfile ,create_DemoEvent, getCollectionGuests , getFeedbacksofEvent ,
-                                getAdmin , getDemoEvent , checkAndToggleStatus , deleteFeedback_OfEvent , termAndCondition ,
+                               changeProfile ,create_DemoEvent, getCollectionGuests , 
+                                getAdmin , getDemoEvent , checkAndToggleStatus , termAndCondition ,
                                 getTermAndCondition , privacyAndPolicy , 
                                 getPrivacy_and_Policy , getAllFeedback , deleteFeedback , getAllUser ,
                                 checkAndToggleStatus_Of_User  , getAdminNotification , sendNotification_to_allUser,
                                 sendNotification_to_user , sendNotifications , getAll_Users_Notificatation , 
                                 deleteNotifcationById , getContactUs_Details , deleteContactDetails , getFAQ , getAllCollections ,
-                                getCollectionById
+                                getCollectionById , all_Details
                             }

@@ -58,11 +58,11 @@ const userController = require('../controller/userController')
     // API for getAll Events 
                         router.get('/getAllEvents', userController.getAllEvents)
     // API for get user Event
-                        router.get('/getUserEvent/:userId', userController.getUserEvent)
+                        router.post('/getUserEvent/:userId', userController.getUserEvent)
 
                                       /* Feedback  */
    // API for feedback form
-                        router.post('/feedback/:userId/:eventId', userController.feedback)
+                        router.post('/feedback/:userId', userController.feedback)
 
                                     /* Contact Us */
     
@@ -75,6 +75,8 @@ const userController = require('../controller/userController')
                                 
                                 /*   Invite Event */
                        router.post('/sendInvitation/:eventId', userController.sendInvitation)
+// Api for get invited Guests
+                       router.get('/getAllGuest_of_invitation/:eventId', userController.getAllGuest_of_invitation)
 // API for get Invited events of user
                         router.get('/getMyInvitation' , userController.getMyInvitation)
 // APi to get event by Id
@@ -86,7 +88,7 @@ const userController = require('../controller/userController')
 // API for send response to Invited event by user
                           router.post('/userRespondToInvitedEvent/:eventId' , userController.userRespondToInvitedEvent)
 // APi for  getAllGuest_with_Response
-                         router.get('/getAllGuest_with_Response/:eventId', userController.getAllGuest_with_Response) 
+                         router.post('/getAllGuest_with_Response/:eventId', userController.getAllGuest_with_Response) 
 // APi for  getResponseEvent
                          router.get('/getallResponseEvent', userController.getallResponseEvent) 
 // APi for check phone_no existance
@@ -138,5 +140,7 @@ const userController = require('../controller/userController')
                           router.post('/viewFeed/:feed_Id/:userId', userController.viewFeed)
 // Api for get user Notification
                          router.get('/getNotification_of_user/:userId', userController.getNotification_of_user)
+// APi for delete particular Notification
+                         router.delete('/deleteNotificationById/:notification_id', userController.deleteNotificationById)
 
 module.exports = router

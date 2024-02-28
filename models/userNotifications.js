@@ -9,6 +9,10 @@ eventId: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'eventModel',     
 },  
+event_image : 
+{
+  type : String
+},
 
 date: {
     type: Date,  
@@ -32,6 +36,13 @@ userName : {
 },
 phone_no : {
   type : Number
+},
+event_image : 
+{
+  type : String
+},
+event_location : {
+  type : String
 },
 },{
   timestamps: true,

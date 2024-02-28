@@ -26,6 +26,9 @@ const eventSchema = new Schema({
     type: String,
     enum: ['Business_Conference', 'Music_Festivals', 'Birthday', 'Exhibitions', 'Wedding_Anniversary', 'Sports', 'marriage', 'Demo', 'Marriage'],
   },
+  city_Name : {
+    type : String
+  },
   co_hosts: [
     {
       co_host_Name: {
@@ -101,10 +104,17 @@ const eventSchema = new Schema({
     enum: [0, 1],
     default: 1
   },
+  event_key : {
+    type : Number,
+    default : 1
+  },
+
+  
   venue_Date_and_time: [
     {
       sub_event_title: {
-        type: String
+        type: String,
+        default : ''
       },
       venue_Name: {
         type: String,

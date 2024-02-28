@@ -2,11 +2,11 @@ const mongoose = require('mongoose');
 const Schema = mongoose.Schema;
 
 const InvitedeventSchema = new Schema({
-  hostId: {
+  userId: {
     type: Schema.Types.ObjectId,
     ref: "userModel",
   },
-  hostName : {
+  userName : {
     type : String
   },
   adminId: {
@@ -21,11 +21,15 @@ const InvitedeventSchema = new Schema({
     type: Schema.Types.ObjectId,
     ref: "eventModel",
   },
-  event_title: {
+  title: {
     type: String,
    
   },
-  event_description: {
+  event_key :{
+    type : Number,
+    Default : 0
+  },
+  description: {
     type: String,   
   },
   event_Type: {
@@ -62,9 +66,9 @@ const InvitedeventSchema = new Schema({
   },
 
   event_status: {
-    type: String,
-    enum: ["invited" , "created"],    
-    default : "invited"
+    type: Number,
+    enum: [0 , 1]
+   
   },
 
   venue_Date_and_time: [

@@ -389,3 +389,147 @@ const sendInvitation = async (req, res) => {
         });
     }
 };
+
+
+
+
+
+
+
+
+
+
+
+**********************************
+
+const get_Event_on_date = async (req, res) => {
+    try {
+        const userId = req.params.userId;
+        const { month, year, dates } = req.body;
+
+        // Check for userId
+        if (!userId) {
+            return res.status(200).json({
+                success: false,
+                userId_required: 'userId required',
+            });
+        }
+
+        const user = await userModel.findOne({ _id: userId });
+        if (!user) {
+            return res.status(200).json({
+                success: false,
+                userExistanceMessage: 'user not found',
+            });
+        }
+
+        const phone_no = user.phone_no;
+
+        if (dates && month && year) {
+            const parsedDate = parse(`${month} ${year}`, 'MMM yyyy', new Date());
+            const startDate = new Date(parsedDate.getFullYear(), parsedDate.getMonth(), 1);
+            const endDate = new Date(parsedDate.getFullYear(), parsedDate.getMonth() + 1, 0);
+            const allDatesInMonth = eachDayOfInterval({ start: startDate, end: endDate });
+
+            const eventDetails = [];
+            const created_event_Details = [];
+            const invited_event_details = [];
+
+            for (const date of allDatesInMonth) {
+                const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+                const formattedDate = `${date.getDate()} ${months[date.getMonth()]}, ${date.getFullYear()}`;
+
+                // Check if the current date is the specified date
+                if (formattedDate === dates) {
+                    const created_events = await eventModel.find({
+                        userId: userId,
+                        'venue_Date_and_time.date': formattedDate,
+                    });
+
+                    const invitedEvents = await InvitedeventModel.find({
+                        'Guests.phone_no': phone_no,
+                        'venue_Date_and_time.date': formattedDates,
+                    });
+
+                    created_event_Details.push(...created_events);
+                    invited_event_details.push(...invitedEvents);
+
+                    eventDetails.push({
+                        date: formattedDate,
+                        created_eventCount: created_events.length,
+                        invited_eventCount: invitedEvents.length,
+                    });
+                } else {
+                    // If the current date is not the specified date, push an empty entry
+                    eventDetails.push({
+                        date: formattedDate,
+                        created_eventCount: 0,
+                        invited_eventCount: 0,
+                    });
+                }
+            }
+
+            return res.status(200).json({
+                success: true,
+                message: 'Event Details',
+                eventDetails: eventDetails,
+                created_event_Details: created_event_Details.map(event => ({ ...event._doc, event_type_name: 1 })),
+                invited_event_details: invited_event_details.map(event => ({ ...event._doc, event_type_name: 2 })),
+            });
+        } else if (month && year) {
+            // Handle logic for monthly events
+            const parsedDate = parse(`${month} ${year}`, 'MMM yyyy', new Date());
+            const startDate = new Date(parsedDate.getFullYear(), parsedDate.getMonth(), 1);
+            const endDate = new Date(parsedDate.getFullYear(), parsedDate.getMonth() + 1, 0);
+            const allDatesInMonth = eachDayOfInterval({ start: startDate, end: endDate });
+
+            const eventDetails = [];
+            const created_event_Details = [];
+            const invited_event_details = [];
+
+            for (const date of allDatesInMonth) {
+                const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+                const formattedDate = `${date.getDate()} ${months[date.getMonth()]}, ${date.getFullYear()}`;
+
+                const events = await eventModel.find({
+                    userId: userId,
+                    'venue_Date_and_time.date': formattedDate,
+                });
+
+                const invitedEvents = await InvitedeventModel.find({
+                    'Guests.phone_no': phone_no,
+                    'venue_Date_and_time.date': formattedDates,
+                });
+
+                created_event_Details.push(...events);
+                invited_event_details.push(...invitedEvents);
+
+                eventDetails.push({
+                    date: formattedDate,
+                    created_eventCount: events.length,
+                    invited_eventCount: invitedEvents.length,
+                });
+            }
+
+            return res.status(200).json({
+                success: true,
+                message: 'Event Details',
+                eventDetails: eventDetails,
+                created_event_Details: created_event_Details.map(event => ({ ...event._doc, event_type_name: 1 })),
+                invited_event_details: invited_event_details.map(event => ({ ...event._doc, event_type_name: 2 })),
+            });
+        } else {
+            // Handle case where neither date nor month/year is provided
+            return res.status(200).json({
+                success: false,
+                date_required: 'date or month and year are required',
+            });
+        }
+    } catch (error) {
+        console.error(error);
+        return res.status(500).json({
+            success: false,
+            message: 'Server error',
+        });
+    }
+};

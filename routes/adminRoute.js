@@ -28,7 +28,7 @@ const nodemailer = require('nodemailer')
 // API for get all Guests of a collection in Bookmark model
                   router.get('/getCollectionGuests', adminController.getCollectionGuests)
 // API for get demo Event 
-                  router.get('/getDemoEvent', adminController.getDemoEvent)
+                  router.get('/getDemoEvent/:adminId', adminController.getDemoEvent)
 // APi for checkAndToggleStatus of event
 router.post('/checkAndToggleStatus/:eventId', adminController.checkAndToggleStatus)
 // APi for get all collections
@@ -36,10 +36,8 @@ router.post('/checkAndToggleStatus/:eventId', adminController.checkAndToggleStat
 // APi for get collection by Id
         router.get('/getCollectionById/:collectionId', adminController.getCollectionById)            
                                          /* FEEDBACK */
-// API for get all feedbacks of a event
-                  router.get('/getFeedbacksofEvent/:eventId', adminController.getFeedbacksofEvent)
-// API for delete feedback of event
-                 router.delete('/deleteFeedback_OfEvent/:eventId/:feedbackId', adminController.deleteFeedback_OfEvent)
+
+
 // APi for get all feedback
                 router.get('/getAllFeedback', adminController.getAllFeedback)
 // API for delete particular feedback by feedbackId
@@ -86,6 +84,9 @@ router.post('/checkAndToggleStatus/:eventId', adminController.checkAndToggleStat
                                    /* FAQ  */
 // API for  get FAQ Details of USER
                   router.get('/getFAQ', adminController.getFAQ)
+
+// Api for get all details of Dashboard
+                  router.get('/all_Details', adminController.all_Details)
 
 
 module.exports = router
