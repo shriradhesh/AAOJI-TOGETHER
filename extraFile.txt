@@ -1,14 +1,4 @@
-   CMS
-                    Tommorow task
-1) get Images from event
-2) add new Image in Image array of event
-3) delete particular image from image array of event
-4) create socialMedial page 
-5) create Phone page
-6) create email page
-7) create write a message page
-8) get all messages
-9) delete particular message 
+
 
 
 

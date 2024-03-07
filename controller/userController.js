@@ -31,6 +31,8 @@ const cmssocialMediaModel = require('../models/cmsSocialMedia')
 const cmsPhoneModel = require('../models/cmsPhoneModel')
 const cmsEmaiModel = require('../models/cmsEmailModel')
 const cmsAboutfesta_Model = require('../models/aboutfestaModel')
+const cmsOurTeamModel = require('../models/cms_aboutUs_ourTeam')
+const cmsOurMissionAndVisionModel = require('../models/cms_ourVission_and_mission')
 const fast2sms = require('fast-two-sms')
 const twilio = require('twilio');
 const phoneUtil = require('libphonenumber-js');
@@ -5187,7 +5189,200 @@ const get_cms_email = async ( req , res)=>{
     }
 }
 
+// Api for get aboutFesta content
+const get_aboutFesta = async ( req , res)=>{
+  try {
+          // check for cmsSocialMedia
+      const cmsAboutfesta = await cmsAboutfesta_Model.find({ })
+      if(!cmsAboutfesta)
+      {
+        return res.status(200).json({
+              success : false,
+              message : 'no cmsAboutfesta details found'
+        })
+      }
+      else
+      {
+        return res.status(200).json({
+            success : true ,
+            message : 'cmsAboutfesta Details',
+            Details : cmsAboutfesta
+        })
+      }
+  } catch (error) {
+    return res.status(500).json({
+            success : false ,
+            message : 'server error',
+            error_message : error.message
+    })
+  }
+ }
+
+ // Api for create and update our Team section
+ const createAndUpdate_cms_OurTeam = async (req, res) => {
+  try {
+      const { heading, description} = req.body;
+
+      const requiredFields = ['heading', 'description'];
+      for (const field of requiredFields) {
+          if (!req.body[field]) {
+              return res.status(400).json({
+                  success: false,
+                  message: `Missing ${field.replace('_', ' ')} field`,
+              });
+          }
+      }       
+
+      // Check if there is an existing record
+      const existingRecord = await cmsOurTeamModel.findOne();
+      if (existingRecord) {
+          existingRecord.heading = heading;
+          existingRecord.description = description;
+         
+          await existingRecord.save();
+
+          return res.status(200).json({
+              success: true,
+              message: 'cms_OurTeam updated successfully!',
+             
+          });
+      } else {
+          const newRecord = new cmsOurTeamModel({
+            heading,
+            description,              
+          });
+
+          const savedRecord = await newRecord.save();
+
+          return res.status(200).json({
+              success: true,
+              message: 'New cms_OurTeam inserted successfully!',
+              details: savedRecord
+          });
+      }
+  } catch (error) {
+      return res.status(500).json({
+          success: false,
+          message: 'Server Error',
+          error_message: error.message
+      });
+  }
+}
   
+// Api for get our team details
+      const getcmsOurTeam = async( req ,res)=>{
+        try {
+             const  get_cms_ourTeam = await cmsOurTeamModel.find({ })
+             // check for details
+            if(!get_cms_ourTeam)
+            {
+              return res.status(200).json({
+                 success : false ,
+                 message : 'no details found'
+              })
+            }
+            else
+            {
+              return res.status(200).json({
+                   success : true ,
+                   message : 'cms ourTeam Details',
+                   details : get_cms_ourTeam
+              })
+            }
+        } catch (error) {
+          return res.status(500).json({
+                   success : false ,
+                   message : 'server error'
+          })
+        }
+      }
+              
+  // APi for create and update cmsOurMissionAndVisionModel
+
+  const createAndUpdate_OurMissionAndVision = async (req, res) => {
+    try {
+        const { our_mission, our_vision } = req.body;
+
+        // Check for required fields
+        if (!our_mission) {
+            return res.status(400).json({
+                success: false,
+                message: 'our_mission is required',
+            });
+        }
+        if (!our_vision) {
+            return res.status(400).json({
+                success: false,
+                message: 'our_vision is required',
+            });
+        }
+
+        // Check for existing data
+        let cmsOurMissionAndVision = await cmsOurMissionAndVisionModel.findOne({});
+
+        if (cmsOurMissionAndVision) {
+            // Update existing record
+            cmsOurMissionAndVision.our_mission = our_mission;
+            cmsOurMissionAndVision.our_vision = our_vision;
+
+            await cmsOurMissionAndVision.save();
+
+            return res.status(200).json({
+                success: true,
+                message: 'CMS Our Mission And Vision updated successfully',
+            });
+        } else {
+            // Create new record
+            const newRecord = new cmsOurMissionAndVisionModel({
+                our_mission,
+                our_vision,
+            });
+
+            await newRecord.save();
+
+            return res.status(200).json({
+                success: true,
+                message: 'CMS Our Mission And Vision inserted successfully',
+            });
+        }
+    } catch (error) {
+        return res.status(500).json({
+            success: false,
+            message: 'Server error',
+            error_message: error.message,
+        });
+    }
+};
+
+// Api for getOurMissionAndVision details
+const getOurMissionAndVision = async( req ,res)=>{
+  try {
+       const  OurMissionAndVision = await cmsOurMissionAndVisionModel.find({ })
+       // check for details
+      if(!OurMissionAndVision)
+      {
+        return res.status(200).json({
+           success : false ,
+           message : 'no details found'
+        })
+      }
+      else
+      {
+        return res.status(200).json({
+             success : true ,
+             message : 'cms OurMissionAndVision Details',
+             details : OurMissionAndVision
+        })
+      }
+  } catch (error) {
+    return res.status(500).json({
+             success : false ,
+             message : 'server error'
+    })
+  }
+}
+
+
                         /*   Chat section of event */
 
 
@@ -5345,7 +5540,8 @@ const get_cms_email = async ( req , res)=>{
                       get_cms_email ,
 
                       /* CMS ABOUT SECTION */
-                      createAndUpdate_aboutFesta
+                      createAndUpdate_aboutFesta , get_aboutFesta , createAndUpdate_cms_OurTeam ,
+                       getcmsOurTeam , createAndUpdate_OurMissionAndVision , getOurMissionAndVision
 
 
 

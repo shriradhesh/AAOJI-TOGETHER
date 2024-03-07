@@ -224,8 +224,18 @@ const userController = require('../controller/userController')
                                           /* CMS ABOUT SECTION */
 // APi for createAndUpdate_aboutFesta
                         router.post('/createAndUpdate_aboutFesta', upload.array('images', 5), userController.createAndUpdate_aboutFesta);
-
-                                   /* Chat section */
+// Api for get_aboutFesta
+                        router.get('/get_aboutFesta', userController.get_aboutFesta)
+// Api for createAndUpdate_cms_OurTeam
+                         router.post('/createAndUpdate_cms_OurTeam', userController.createAndUpdate_cms_OurTeam)
+// Api for getcmsOurTeam
+                         router.get('/getcmsOurTeam', userController.getcmsOurTeam)
+// APi for createAndUpdate_OurMissionAndVision
+                          router.post('/createAndUpdate_OurMissionAndVision', userController.createAndUpdate_OurMissionAndVision)
+// APi for getOurMissionAndVision
+                          router.get('/getOurMissionAndVision', userController.getOurMissionAndVision)
+                                  
+                                        /* Chat section */
 
 // APi for sedn text_message
                          router.post('/sendtext_message/:eventId/:userId', userController.sendtext_message)
