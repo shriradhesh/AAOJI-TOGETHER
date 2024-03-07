@@ -6,6 +6,10 @@ const bookmarkSchema = new mongoose.Schema({
     type: Schema.Types.ObjectId,
     ref: "eventModel",
   },
+  userId: {
+    type: Schema.Types.ObjectId,
+    ref: "userModel",
+  },
   bookmark_Collection : [{
     name: {
       type: String,

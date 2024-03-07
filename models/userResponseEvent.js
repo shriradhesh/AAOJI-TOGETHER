@@ -44,13 +44,16 @@ const userResponseEventSchema = new Schema({
         },
           venue : [
             {
+              sub_event_Id : {
+                type : String
+              },
               sub_event_title: {
                 type: String,
               },      
               venue_status : {
                 type : Number ,
-                enum : [0,1,2,3],       //pending , accept , reject , maybe 
-                default : 0         // pending
+                enum : [0,1,2,3],       // 1 accept , 0 reject  , 2 for maybe
+                default : 0         
             },
             },
           ]

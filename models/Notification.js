@@ -11,8 +11,7 @@ message :
 },
 phone_no : {
     type : Number
-  },
-  
+  },  
 
 eventId: {
     type: mongoose.Schema.Types.ObjectId,
@@ -25,7 +24,11 @@ event_image :
 event_location : {
   type : String
 },
-
+status : {
+  type : Number,
+  enum : [0 ,1],
+ 
+},
 
 title :
 {

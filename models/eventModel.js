@@ -24,7 +24,7 @@ const eventSchema = new Schema({
   },
   event_Type: {
     type: String,
-    enum: ['Business_Conference', 'Music_Festivals', 'Birthday', 'Exhibitions', 'Wedding_Anniversary', 'Sports', 'marriage', 'Demo', 'Marriage'],
+    enum: ['Business Conference', 'Music Festivals', 'Birthday', 'Exhibitions', 'Wedding Anniversary', 'Sports', 'marriage', 'Demo', 'Marriage'],
   },
   city_Name : {
     type : String
@@ -90,6 +90,9 @@ const eventSchema = new Schema({
         type: Number,
         enum: [0, 1],
         default: 0
+      },
+      added_by : {
+        type : String
       }
     },
   ],

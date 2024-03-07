@@ -44,6 +44,11 @@ event_image :
 event_location : {
   type : String
 },
+status : {
+    type : Number,
+    enum : [0 , 1],
+    default  : 1
+}
 },{
   timestamps: true,
 });

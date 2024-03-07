@@ -500,37 +500,46 @@ const getAllCollections = async (req, res) => {
   
 
             // APi for get all guests of a collection  in bookMark model
+            const getCollectionGuests = async (req, res) => {
+                try {
+                    const collectionName = req.body.collectionName;
+            
+                    // Find the collection by name
+                    const collection = await bookmarkModel.findOne({ "bookmark_Collection.name": collectionName });
+            
+                    if (!collection) {
+                        return res.status(400).json({
+                            success: false,
+                            message: `Collection not found: ${collectionName}`
+                        });
+                    }
+            
+                    // Retrieve guests for the found collection
+                    const guests = collection.bookmark_Collection[0].bookmark_entries;
+            
+                    if (!guests || guests.length === 0) {
+                        return res.status(400).json({
+                            success: false,
+                            message: `No guests found for the collection: ${collectionName}`
+                        });
+                    }
+            
+                    res.status(200).json({
+                        success: true,
+                        message: `All Guests for the collection: ${collectionName}`,
+                        all_guests: guests,
+                        collection_entries_count: guests.length
+                    });
+                } catch (error) {
+                    console.error(error);
+                    return res.status(500).json({
+                        success: false,
+                        message: 'There is a server error'
+                    });
+                }
+            };
+            
 
-                                        const getCollectionGuests = async (req ,res)=>{
-                                            try {
-                                                const collectionName = req.body.collectionName
-                                                const query = {
-                                                    collectionName
-                                                }
-                                                
-                                                const guest = await bookmarkModel.find(query)
-
-                                                if(!guest || guest.length === 0)
-                                                {
-                                                    return res.status(400).json({
-                                                                        success : false ,
-                                                                        message : `no guest found for the collection : ${collectionName}`
-                                                    })
-                                                }
-
-                                                res.status(200).json({
-                                                                    success : true,
-                                                                    message : `All Guests for the collection : ${collectionName}`,
-                                                                    all_guests : guest
-                                                })
-                                            } catch (error) {
-                                                console.error(error);
-                                                return res.status(500).json({
-                                                                        success : false ,
-                                                                        message : 'there is an server error'
-                                                })
-                                            }
-                                        }
 
 
                     
@@ -904,6 +913,7 @@ const getAllCollections = async (req, res) => {
                                         message,
                                         event_location,
                                         userEmail: user.email,
+                                        status : 1
                                         }
                                     }))
                                 
@@ -984,7 +994,8 @@ const getAllCollections = async (req, res) => {
                                                     date: new Date(),
                                                     userName : userName,
                                                     event_image: "0",
-                                                    event_location: event_location
+                                                    event_location: event_location,
+                                                    status : 1
 
                                             
                                                 });
@@ -1299,6 +1310,9 @@ const getAllCollections = async (req, res) => {
                    }                     
                                    
 
+
+                                 
+   
 
         module.exports = { login_Admin  , changePassword , forgetPassToken , reset_password ,
                                changeProfile ,create_DemoEvent, getCollectionGuests , 

@@ -19,10 +19,18 @@ const UsersNotificationModel = require('../models/userNotifications')
 
 const { ObjectId } = require('mongoose').Types;
 
-
+const todoModel = require('../models/todomodel')
 const Admin = require('../models/AdminModel')
 const faqModel = require('../models/FaQ')
-
+const cmsSliderModel = require('../models/CmsSlider')
+const manageOwnEventModel = require('../models/manageOwnEvent')
+const chatModel = require("../models/chatModel")
+const cmsDownloadAppModel = require('../models/cmsdownloadAppModel')
+const cmsTestimonialModel = require('../models/cmsTesimonial')
+const cmssocialMediaModel = require('../models/cmsSocialMedia')
+const cmsPhoneModel = require('../models/cmsPhoneModel')
+const cmsEmaiModel = require('../models/cmsEmailModel')
+const cmsAboutfesta_Model = require('../models/aboutfestaModel')
 const fast2sms = require('fast-two-sms')
 const twilio = require('twilio');
 const phoneUtil = require('libphonenumber-js');
@@ -89,11 +97,11 @@ const { TrustProductsEntityAssignmentsPage } = require('twilio/lib/rest/trusthub
           console.error(error);
           res.status(500).json({
               success: false,
-              message: 'There is a server error',
+              message: 'server error',
+              error_message : error.message
           });
       }
-  };
-  
+  };  
       // update user
       const updateUser = async (req, res) => {
         try {
@@ -165,10 +173,9 @@ const { TrustProductsEntityAssignmentsPage } = require('twilio/lib/rest/trusthub
           }
         } catch (error) {
           console.log(error);
-          res.status(500).json({ success: false, message: 'Error while updating user profile' });
+          res.status(500).json({ success: false, message: 'server Error', error_message : error.message });
         }
-      };
-      
+      };     
       
   // Api for get particular user details by there id
                const getUser = async( req ,res)=>{
@@ -204,7 +211,7 @@ const { TrustProductsEntityAssignmentsPage } = require('twilio/lib/rest/trusthub
                 } catch (error) {
                   return res.status(500).json({
                                success : false ,
-                               serverErrorMessage : 'server Error'
+                               Error_Message : 'server Error'
                   })
                 }
                }
@@ -232,8 +239,7 @@ const { TrustProductsEntityAssignmentsPage } = require('twilio/lib/rest/trusthub
             serverError: 'Server error',
           });
         }
-      };
-      
+      };      
 
     // user login
                     const userLogin = async(req,res)=>{                      
@@ -264,7 +270,7 @@ const { TrustProductsEntityAssignmentsPage } = require('twilio/lib/rest/trusthub
 
   
                    
-                                              /*  Event management */
+                                                      /*  Event management */
 
 
     // API for create Event
@@ -276,7 +282,7 @@ const { TrustProductsEntityAssignmentsPage } = require('twilio/lib/rest/trusthub
           description,
           event_Type,
           venue_Date_and_time,
-          // city_Name
+          city_Name
         } = req.body;
     
         const requiredFields = ['title', 'description', 'event_Type'];
@@ -334,7 +340,7 @@ const { TrustProductsEntityAssignmentsPage } = require('twilio/lib/rest/trusthub
           userId: userId,
           userName: userName,
            event_key : 1,
-          //  city_Name : city_Name,
+           city_Name : city_Name,
           event_status: eventModel.schema.path('event_status').getDefault(),
         });
     
@@ -360,10 +366,7 @@ const { TrustProductsEntityAssignmentsPage } = require('twilio/lib/rest/trusthub
         });
       }
     };
-    
-    
-    
-    
+   
     
 // API for add multiple event 
            
@@ -464,8 +467,6 @@ const add_co_host = async (req, res) => {
       });
   }
 };
-
-
 
 // API for delete co-host in event
                              const delete_co_Host = async (req , res)=>{
@@ -664,186 +665,280 @@ const add_co_host = async (req, res) => {
                               }
 
 // add guest in event
-                      const add_guest = async (req, res) => {
-                        try {
-                          const eventId = req.params.eventId;
-                          const { Guest_Name, phone_no, eventGuest_key } = req.body;
+const add_guest = async (req, res) => {
+  try {
+      const userId = req.params.userId;
+      const eventId = req.params.eventId;
+      const { Guest_Name, phone_no, eventGuest_key } = req.body;
 
-                          const requiredFields = ['Guest_Name', 'phone_no', 'eventGuest_key'];
+      const requiredFields = ['Guest_Name', 'phone_no', 'eventGuest_key'];
 
-                          for (const field of requiredFields) {
-                            if (!req.body[field]) {
-                              return res.status(400).json({ message: `Missing ${field.replace('_', ' ')} field`, success: false });
-                            }
-                          }
+      for (const field of requiredFields) {
+          if (!req.body[field]) {
+              return res.status(400).json({ message: `Missing ${field.replace('_', ' ')} field`, success: false });
+          }
+      }
 
-                          // Check for event
-                          const event = await eventModel.findOne({ _id: eventId });
+      // Check for event
+      const event = await eventModel.findOne({ _id: eventId });
 
-                          if (!event) {
-                            return res.status(400).json({ success: false, message: `Event not found with the eventId ${eventId}` });
-                          }
+      if (!event) {
+          return res.status(400).json({ success: false, message: `Event not found with the eventId ${eventId}` });
+      }
 
-                          // Convert eventGuest_key to integer if it's a string
-                          const key = parseInt(eventGuest_key);
+      // Get user details from event or co-hosts 
+      var addedBy = ""; // Initialize addedBy variable
 
-                          if (![1, 2].includes(key)) {
-                            return res.status(400).json({ success: false, message: `Invalid eventGuest_key value` });
-                          }
+      const user = await userModel.findOne({ _id: userId });
 
-                          if (key === 1) {
-                            // Check if guest already exists with the same phone number 
-                            const guestExist = event.Guests.find((guest) => guest.phone_no === phone_no);
+      // Check if user exists
+      if (!user) {
+          return res.status(400).json({
+              success: false,
+              message: 'User not found'
+          });
+      }
 
-                            if (guestExist) {
-                              return res.status(400).json({
-                                success: false,
-                                guestExistMessage: 'Guest already exists with the same phone_no',
-                              });
-                            }
+      const userPhone = user.phone_no;
 
-                            // Add the new guest to the Guests array
-                            event.Guests.push({
-                              Guest_Name,
-                              phone_no,
-                              status: 0,
-                            });
+      // Check if the user is the event host
+      if (event.userId.toString() === userId) {
+          addedBy = user.fullName;
+      } else {
+          // Check if the user is a co-host
+          const coHost = event.co_hosts.find(coHost => coHost.phone_no === userPhone);
 
-                            await event.save();
+          if (coHost) {
+              addedBy = coHost.co_host_Name;
+          } else {
+              // If neither the event host nor a co-host, set addedBy as the user's full name
+              addedBy = user.fullName;
+          }
+      }
 
-                            return res.status(200).json({
-                              success: true,
-                              message: `Guest added successfully`,
-                            });
-                          } else if (key === 2) {
-                            // Check for invited Event
-                            const invitedEvent = await InvitedeventModel.findOne({ _id : eventId });
+      // Convert eventGuest_key to integer if it's a string
+      const key = parseInt(eventGuest_key);
 
-                            if (!invitedEvent) {
-                              return res.status(400).json({ success: false, message: `Invited event not found with the eventId ${eventId}` });
-                            }
+      if (![1, 2].includes(key)) {
+          return res.status(400).json({ success: false, message: `Invalid eventGuest_key value` });
+      }
 
-                            // Check if guest already exists with the same phone number in the invited event
-                            const guestExistInInvitedEvent = invitedEvent.Guests.find((guest) => guest.phone_no === phone_no);
+      if (key === 1) {
+          // Check if guest already exists with the same phone number 
+          const guestExist = event.Guests.find((guest) => guest.phone_no === phone_no);
 
-                            if (guestExistInInvitedEvent) {
-                              return res.status(400).json({
-                                success: false,
-                                guestExistMessage: 'Guest already exists with the same phone_no in the invited event',
-                              });
-                            }
-                            else{
-                              // Add the guest to the Invited Event 
-                            invitedEvent.Guests.push({
-                              Guest_Name,
-                              phone_no,
-                              status: 2
-                            });
-                            await invitedEvent.save();
+          if (guestExist) {
+              return res.status(400).json({
+                  success: false,
+                  guestExistMessage: 'Guest already exists with the same phone_no',
+              });
+          }
 
-                            // Check if user exists with the provided phone number
-                            const user = await userModel.findOne({ phone_no: phone_no });
+          // Add the new guest to the Guests array
+          event.Guests.push({
+              Guest_Name,
+              phone_no,
+              status: 0,
+              added_by: addedBy
+          });
 
-                            if (user) {
-                              // Create a notification for the user
-                              await NotificationModel.create({
-                                eventId: event._id,
-                                title: event.title,
-                                description: event.description,
-                                userId: user._id,
-                                phone_no: phone_no,
-                                message: `Hello, you are invited to ${event.title} by ${event.userName}`
-                              });
-                            } else {
-                              // Sending SMS to invalid guests
-                              const formattedPhoneNumber = `+91${phone_no}`;
-                              const message = `Hello, you are invited to ${event.title} by ${event.userName}. Receive updates about the event on the link: https://localhost.com`;
+          await event.save();
 
-                              // Use SMS Gateway Hub to send SMS
-                              await sendSMSUsingGatewayHub(formattedPhoneNumber, message);
-                            }
+          return res.status(200).json({
+              success: true,
+              message: `Guest added successfully`,
+          });
+      } else if (key === 2) {
+          // Check for invited Event
+          const invitedEvent = await InvitedeventModel.findOne({ _id: eventId });
 
-                            return res.status(200).json({
-                              success: true,
-                              message: 'Guests added successfully',
-                            });
-                          }
-                            }
+          if (!invitedEvent) {
+              return res.status(400).json({ success: false, message: `Invited event not found with the eventId ${eventId}` });
+          }
 
-                            
-                        } catch (error) {
-                          console.error(error);
-                          return res.status(500).json({
-                            success: false,
-                            message: 'There is a server error',
-                          });
-                        }
-                      };
+          // Check if guest already exists with the same phone number in the invited event
+          const guestExistInInvitedEvent = invitedEvent.Guests.find((guest) => guest.phone_no === phone_no);
+
+          if (guestExistInInvitedEvent) {
+              return res.status(400).json({
+                  success: false,
+                  guestExistMessage: 'Guest already exists with the same phone_no in the invited event',
+              });
+          } else {
+              // Add the guest to the Invited Event 
+              invitedEvent.Guests.push({
+                  Guest_Name,
+                  phone_no,
+                  status: 2,
+                  added_by: addedBy
+              });
+              await invitedEvent.save();
+
+              // Check if user exists with the provided phone number
+              const user = await userModel.findOne({ phone_no: phone_no });
+
+              if (user) {
+                  // Create a notification for the user
+                  await NotificationModel.create({
+                      eventId: event._id,
+                      title: event.title,
+                      description: event.description,
+                      userId: user._id,
+                      phone_no: phone_no,
+                      message: `Hello, you are invited to ${event.title} by ${event.userName}`
+                  });
+              } else {
+                  // Sending SMS to invalid guests
+                  const formattedPhoneNumber = `+91${phone_no}`;
+                  const message = `Hello, you are invited to ${event.title} by ${event.userName}. Receive updates about the event on the link: https://localhost.com`;
+
+                  // Use SMS Gateway Hub to send SMS
+                  await sendSMSUsingGatewayHub(formattedPhoneNumber, message);
+              }
+
+              return res.status(200).json({
+                  success: true,
+                  message: 'Guests added successfully',
+              });
+          }
+      }
+  } catch (error) {
+      console.error(error);
+      return res.status(500).json({
+          success: false,
+          message: 'There is a server error',
+      });
+  }
+};
+
 
 
 
       // API for import guest from excel
-                          const import_Guest = async (req, res) => {
-                            try {
-                              const eventId = req.params.eventId;
-                          
-                              // Check for event existence
-                              const event = await eventModel.findOne({ _id: eventId });
-                          
-                              if (!event) {
-                                return res.status(400).json({
-                                  success: false,
-                                  message: 'Event not found',
-                                });
-                              }
-                          
-                              const workbook = new ExcelJs.Workbook();
-                              await workbook.xlsx.readFile(req.file.path);
-                              const worksheet = workbook.getWorksheet(1);
-                              const guestData = {};
-                          
-                              worksheet.eachRow((row, rowNumber) => {
-                                if (rowNumber !== 1) {
-                                  // Skip the header row
-                                  const phone_no = row.getCell(2).value;
-                                  const rowData = {
-                                    Guest_Name: row.getCell(1).value,
-                                    phone_no: phone_no,
-                                  };
-                                  // Check if the phone_no already exists in the event's Guests array
-                                  if (!event.Guests.some((guest) => guest.phone_no === phone_no)) {
-                                    guestData[phone_no] = rowData;
-                                  }
-                                }
-                              });
-                          
-                              const uniqueGuestData = Object.values(guestData);
-                          
-                              if (uniqueGuestData.length > 0) {
-                                // Use the $addToSet operator to add only unique phone numbers to the event
-                                await eventModel.updateOne(
-                                  { _id: eventId },
-                                  { $addToSet: { 'Guests': { $each: uniqueGuestData } } }
-                                );
-                          
-                                res.status(200).json({
-                                  success: true,
-                                  message: 'Guest data imported successfully',
-                                });
-                              } else {
-                                res.status(200).json({
-                                  success: true,
-                                  message: 'No new guest data to import',
-                                });
-                              }
-                            } catch (error) {
-                              console.error(error);
-                              return res.status(500).json({
-                                success: false,
-                                message: 'There is a server error',
-                              });
-                            }
-                          };
+      const import_Guest = async (req, res) => {
+        try {
+            const eventId = req.params.eventId;
+            const importGuest_key = req.body.importGuest_key;
+    
+            // Convert importGuest_key to integer if it's a string
+            const key = parseInt(importGuest_key);
+    
+            if (![1, 2].includes(key)) {
+                return res.status(400).json({ success: false, message: `Invalid eventGuest_key value` });
+            }
+    
+            if (key === 1) {
+                // Check for event existence
+                const event = await eventModel.findOne({ _id: eventId });
+    
+                if (!event) {
+                    return res.status(400).json({
+                        success: false,
+                        message: 'Event not found',
+                    });
+                }
+    
+                const workbook = new ExcelJs.Workbook();
+                await workbook.xlsx.readFile(req.file.path);
+                const worksheet = workbook.getWorksheet(1);
+                const guestData = {};
+    
+                worksheet.eachRow((row, rowNumber) => {
+                    if (rowNumber !== 1) {
+                        // Skip the header row
+                        const phone_no = row.getCell(2).value;
+                        const rowData = {
+                            Guest_Name: row.getCell(1).value,
+                            phone_no: phone_no,
+                            status: 0 // Set status to 0
+                        };
+                        // Check if the phone_no already exists in the event's Guests array
+                        if (!event.Guests.some((guest) => guest.phone_no === phone_no)) {
+                            guestData[phone_no] = rowData;
+                        }
+                    }
+                });
+    
+                const uniqueGuestData = Object.values(guestData);
+    
+                if (uniqueGuestData.length > 0) {
+                    // Use the $addToSet operator to add only unique phone numbers to the event
+                    await eventModel.updateOne(
+                        { _id: eventId },
+                        { $addToSet: { 'Guests': { $each: uniqueGuestData } } }
+                    );
+    
+                    res.status(200).json({
+                        success: true,
+                        message: 'Guest data imported successfully',
+                    });
+                } else {
+                    res.status(200).json({
+                        success: true,
+                        message: 'No new guest data to import',
+                    });
+                }
+            } else if (key === 2) {
+                // Check for event existence
+                const event = await InvitedeventModel.findOne({ _id: eventId });
+    
+                if (!event) {
+                    return res.status(400).json({
+                        success: false,
+                        message: 'Event not found',
+                    });
+                }
+    
+                const workbook = new ExcelJs.Workbook();
+                await workbook.xlsx.readFile(req.file.path);
+                const worksheet = workbook.getWorksheet(1);
+                const guestData = {};
+    
+                worksheet.eachRow((row, rowNumber) => {
+                    if (rowNumber !== 1) {
+                        // Skip the header row
+                        const phone_no = row.getCell(2).value;
+                        const rowData = {
+                            Guest_Name: row.getCell(1).value,
+                            phone_no: phone_no,
+                            status: 2 // Set status to 2
+                        };
+                        // Check if the phone_no already exists in the event's Guests array
+                        if (!event.Guests.some((guest) => guest.phone_no === phone_no)) {
+                            guestData[phone_no] = rowData;
+                        }
+                    }
+                });
+    
+                const uniqueGuestData = Object.values(guestData);
+    
+                if (uniqueGuestData.length > 0) {
+                    // Use the $addToSet operator to add only unique phone numbers to the event
+                    await InvitedeventModel.updateOne(
+                        { _id: eventId },
+                        { $addToSet: { 'Guests': { $each: uniqueGuestData } } }
+                    );
+    
+                    res.status(200).json({
+                        success: true,
+                        message: 'Guest data imported successfully',
+                    });
+                } else {
+                    res.status(200).json({
+                        success: true,
+                        message: 'No new guest data to import',
+                    });
+                }
+            }
+        } catch (error) {
+            console.error(error);
+            return res.status(500).json({
+                success: false,
+                message: 'There is a server error',
+            });
+        }
+    };
+    
       
       
         // APi for get all Guests in event
@@ -928,113 +1023,113 @@ const add_co_host = async (req, res) => {
                       }        
                                      
   // API to add all guest as favourite in bookmark 
-                  const addAllGuestsToBookmark = async (req, res) => {
-                    try {
-                      const eventId = req.params.eventId;
-                      const collectionName = req.body.collectionName;
-                  
-                      // Validate collectionName as a required field
-                      if (!collectionName) {
-                        return res.status(400).json({
-                          success: false,
-                          message: 'collectionName is a required field',
-                        });
-                      }
-                  
-                      // Check if collectionName already exists in bookmark table
-                      const existingCollection = await bookmarkModel.findOne({
-                        eventId : eventId,
-                        'bookmark_Collection.name': collectionName,
-                      });
-                  
-                      let updatedCollection;
-                  
-                      if (!existingCollection) {
-                        // If collectionName does not exist in bookmark table, create a new collection
-                        const newCollection = new bookmarkModel({
-                          eventId : eventId ,
-                          bookmark_Collection: [{ name: collectionName, bookmark_entries: [] }],
-                        });
-                  
-                        // Check event existence
-                        const event = await eventModel.findOne({ _id: eventId });
-                        if (!event) {
-                          return res.status(400).json({
-                            success: false,
-                            message: 'No event found',
-                          });
-                        }
-                  
-                        // Get all unique guests in the event
-                        const uniqueGuests = Array.from(
-                          new Set(event.Guests.map((guest) => guest._id.toString()))
-                        ).map((guestId) =>
-                          event.Guests.find((guest) => guest._id.toString() === guestId)
-                        );
-                  
-                        // Set the entries array directly with uniqueGuests values
-                        newCollection.bookmark_Collection[0].bookmark_entries = uniqueGuests.map((guest) => ({
-                          Guest_Name: guest.Guest_Name,
-                          phone_no: guest.phone_no,
-                          status: 1,
-                        }));
-                  
-                        // Save the new collection entry
-                        updatedCollection = await newCollection.save();
-                      } else {
-                        // Check event existence
-                        const event = await eventModel.findOne({ _id: eventId });
-                        if (!event) {
-                          return res.status(400).json({
-                            success: false,
-                            message: 'No event found',
-                          });
-                        }                  
-                        // Get all unique guests in the event
-                        const uniqueGuests = Array.from(
-                          new Set(event.Guests.map((guest) => guest._id.toString()))
-                        ).map((guestId) =>
-                          event.Guests.find((guest) => guest._id.toString() === guestId)
-                        );                  
-                        // Update the bookmark with unique bookmark_entries using $addToSet
-                        await bookmarkModel.updateOne(
-                          { 'eventId': eventId , 'bookmark_Collection.name': collectionName },
-                          {
-                            $addToSet: {
-                              'bookmark_Collection.$.bookmark_entries': {
-                                $each: uniqueGuests.map((guest) => ({
-                                  Guest_Name: guest.Guest_Name,
-                                  phone_no: guest.phone_no,
-                                  status: 1,
-                                })),
-                              },
-                            },
-                          }
-                        );
-                  
-                        // Fetch the updated collection
-                        updatedCollection = await bookmarkModel.findOne({
-                          'eventId' : eventId,
-                          'bookmark_Collection.name': collectionName,
-                        });
-                      }
-                  
-                      res.status(200).json({
-                        success: true,
-                        message: 'All guests added to bookmark as favorites',
-                        eventId : eventId,
-                        collection_details: updatedCollection.bookmark_Collection.find(
-                          (collection) => collection.name === collectionName
-                        ),
-                      });
-                    } catch (error) {
-                      console.error(error);
-                      return res.status(500).json({
-                        success: false,
-                        message: 'There is a server error',
-                      });
-                    }
-                  };
+  const addAllGuestsToBookmark = async (req, res) => {
+    try {
+        const eventId = req.params.eventId;
+        const collectionName = req.body.collectionName;
+
+        // Validate collectionName as a required field
+        if (!collectionName) {
+            return res.status(400).json({
+                success: false,
+                message: 'collectionName is a required field',
+            });
+        }
+
+        // Check event existence
+        const event = await eventModel.findOne({ _id: eventId });
+        if (!event) {
+            return res.status(400).json({
+                success: false,
+                message: 'No event found',
+            });
+        }
+
+        const userId = event.userId; // Move userId declaration and assignment here
+
+        // Check if collectionName already exists in bookmark table
+        const existingCollection = await bookmarkModel.findOne({
+            eventId: eventId,
+            'bookmark_Collection.name': collectionName,
+        });
+
+        let updatedCollection;
+
+        if (!existingCollection) {
+            // If collectionName does not exist in bookmark table, create a new collection
+            const newCollection = new bookmarkModel({
+                eventId: eventId,
+                userId: userId,
+                bookmark_Collection: [{ name: collectionName, bookmark_entries: [] }],
+            });
+
+            // Get all unique guests in the event
+            const uniqueGuests = Array.from(
+                new Set(event.Guests.map((guest) => guest._id.toString()))
+            ).map((guestId) =>
+                event.Guests.find((guest) => guest._id.toString() === guestId)
+            );
+
+            // Set the entries array directly with uniqueGuests values
+            newCollection.bookmark_Collection[0].bookmark_entries = uniqueGuests.map((guest) => ({
+                Guest_Name: guest.Guest_Name,
+                phone_no: guest.phone_no,
+                status: 1,
+            }));
+
+            // Save the new collection entry
+            updatedCollection = await newCollection.save();
+        } else {
+            // Get all unique guests in the event
+            const uniqueGuests = Array.from(
+                new Set(event.Guests.map((guest) => guest._id.toString()))
+            ).map((guestId) =>
+                event.Guests.find((guest) => guest._id.toString() === guestId)
+            );
+
+            // Update the bookmark with unique bookmark_entries using $addToSet
+            await bookmarkModel.updateOne({
+                'eventId': eventId,
+                'userId': userId,
+                'bookmark_Collection.name': collectionName
+            }, {
+                $addToSet: {
+                    'bookmark_Collection.$.bookmark_entries': {
+                        $each: uniqueGuests.map((guest) => ({
+                            Guest_Name: guest.Guest_Name,
+                            phone_no: guest.phone_no,
+                            status: 1,
+                        })),
+                    },
+                },
+            });
+
+            // Fetch the updated collection
+            updatedCollection = await bookmarkModel.findOne({
+                'eventId': eventId,
+                'bookmark_Collection.name': collectionName,
+            });
+        }
+
+        res.status(200).json({
+            success: true,
+            message: 'All guests added to bookmark as favorites',
+            eventId: eventId,
+            userId: userId,
+            collection_details: updatedCollection.bookmark_Collection.find(
+                (collection) => collection.name === collectionName
+            ),
+        });
+    } catch (error) {
+        console.error(error);
+        return res.status(500).json({
+            success: false,
+            message: 'There is a server error',
+            error_message: error.message
+        });
+    }
+};
+
                   
                   
           // delete a particular guest in a collection in bookMark model
@@ -1128,60 +1223,7 @@ const add_co_host = async (req, res) => {
                                   }
                                  }
                 
-            // API for get filtered Event 
-                                        const getFilteredEvent = async (req, res) => {
-                                          try {
-                                            const {
-                                              latest_Update,
-                                              date,
-                                              venue_location,
-                                              event_Type,
-                                              title,
-                                              
-                                            } = req.query;
-                                        
-                                            const filter = {};
-                                        
-                                                    if (latest_Update) 
-                                                    {
-                                                      filter.updatedAt = {
-                                                        $gte: new Date(latest_Update),
-                                                      };
-                                                    }   
-                                                    if(event_Type)
-                                                    {
-                                                      filter.event_Type = event_Type
-                                                    }
-
-                                                    if(title)
-                                                    {
-                                                      filter.title = title
-                                                    }
-                                                    
-                                                    if(venue_location)
-                                                    {
-                                                      filter['venue_Date_and_time.venue_location'] = venue_location
-                                                    }
-
-                                                     if (date) {
-                                                    filter['venue_Date_and_time.date'] = date
-                                                    } 
-                                                       
-                                                    
-                                            const events = await eventModel.find(filter);
-                                        
-                                            return res.status(200).json({
-                                              success: true,
-                                              message: 'Filtered events',
-                                              events: events,
-                                            });
-                                          } catch (error) {
-                                            return res.status(500).json({
-                                              success: false,
-                                              message: 'There is a server error',
-                                            });
-                                          }
-                                        };
+            
                 // API for delete an event
                 const deleteEvent = async (req, res) => {
                   try {
@@ -1229,66 +1271,80 @@ const add_co_host = async (req, res) => {
               };
                                      
             // APi for give feedback
-                             const feedback = async (req ,res)=>{
-                              try {
-                                    const {userId } = req.params
-                                    const { rating , message , feedback_Type } = req.body                                    
-
-                                    const requiredFields = [
-                                      'rating' ,
-                                      'message' ,
-                                      'feedback_Type'                        
-                                  ];
-                                   for (const field of requiredFields) {
-                                      if (!req.body[field]) {
-                                          return res.status(400).json({ message: `Missing ${field.replace('_', ' ')} field`, success: false });
-                                      }
-                                  }
-                                          //check for user
-                                    const user = await userModel.findOne({ _id : userId})
-                                    if(!user)
-                                    {
-                                      return res.status(400).json({
-                                                       success : false ,
-                                                       userExistanceMessage  : 'no user found'
-                                      })
-                                    }
-
-                                    const userName = user.fullName
-                                     
-
-                                         // check if rating is within the range of 1 to 5
-                                         if(rating < 1 || rating > 5)
-                                         {
-                                          return res.status(400).json({
-                                                                  success : false ,
-                                                                  message : 'Rating should be in Range of 1 to 5 '
-                                          })
-                                         }
-
-                                    const feedbacks = new feedbackModel({
-                                      rating ,
-                                      message,
-                                      feedback_Type,                                      
-                                      userId : userId ,
-                                      userName : userName
-
-                                    })
-                              
-                                    await feedbacks.save()
-                                     return res.status(200).json({
-                                                                success : true ,
-                                                                message : ' feedback saved successfully',
-                                                                feedback_details : feedbacks
-                                     })
-                              } catch (error) {
-                                console.error(error);
-                                return res.status(500).json({
-                                                       success : false ,
-                                                       message : ' there is an server error '
-                                })
-                              }
-                             }
+            const feedback = async (req, res) => {
+              try {
+                  const { userId } = req.params;
+                  const { rating, message, feedback_Type } = req.body;
+          
+                  const requiredFields = ['rating', 'message', 'feedback_Type'];
+                  for (const field of requiredFields) {
+                      if (!req.body[field]) {
+                          return res.status(400).json({ message: `Missing ${field.replace('_', ' ')} field`, success: false });
+                      }
+                  }
+          
+                  // Check if user exists
+                  const user = await userModel.findOne({ _id: userId });
+                  if (!user) {
+                      return res.status(400).json({
+                          success: false,
+                          userExistanceMessage: 'no user found'
+                      });
+                  }
+          
+                  const userName = user.fullName;
+          
+                  // Check if rating is within the range of 1 to 5
+                  if (rating < 1 || rating > 5) {
+                      return res.status(400).json({
+                          success: false,
+                          message: 'Rating should be in the range of 1 to 5'
+                      });
+                  }
+          
+                  // Check if feedback already exists for the user
+                  let existingFeedback = await feedbackModel.findOne({ userId });
+          
+                  if (existingFeedback) {
+                      // Update existing feedback
+                      existingFeedback.rating = rating;
+                      existingFeedback.message = message;
+                      existingFeedback.feedback_Type = feedback_Type;
+          
+                      await existingFeedback.save();
+          
+                      return res.status(200).json({
+                          success: true,
+                          message: 'Feedback updated successfully',
+                          feedback_details: existingFeedback
+                      });
+                  } else {
+                      // Create new feedback
+                      const feedbacks = new feedbackModel({
+                          rating,
+                          message,
+                          feedback_Type,
+                          userId,
+                          userName
+                      });
+          
+                      await feedbacks.save();
+          
+                      return res.status(200).json({
+                          success: true,
+                          message: 'Feedback saved successfully',
+                          feedback_details: feedbacks
+                      });
+                  }
+              } catch (error) {
+                  console.error(error);
+                  return res.status(500).json({
+                      success: false,
+                      message: 'There is a server error'
+                  });
+              }
+          };
+          
 
           // APi for delete user
                                      const deleteUser = async (req ,res)=>{
@@ -1342,7 +1398,7 @@ const add_co_host = async (req, res) => {
                                 } catch (error) {
                                   return res.status(500).json({
                                                           success : false ,
-                                                          message : 'there is an server error'
+                                                          message : 'server error'
                                   })
                                 }
                               }
@@ -1379,7 +1435,8 @@ const add_co_host = async (req, res) => {
     const getUserEvent = async (req, res) => {
       try {
           const userId = req.params.userId;
-          const { latest_Update, date, venue_location, event_Type, year, month ,event_type_name} = req.body;
+          const { latest_Update, date, venue_location, event_Type, year, month ,event_type_name  } = req.body;
+
          
           // check for userId
           if (!userId) {
@@ -1396,6 +1453,8 @@ const add_co_host = async (req, res) => {
                   message: 'User not found'
               });
           }
+
+           
   
           const filter = {};
           const filter1 = {};
@@ -1464,10 +1523,13 @@ const add_co_host = async (req, res) => {
           }        
           
           // Fetch events where the user is the host
-          const created_event = await eventModel.find({ userId: userId, ...filter });
+          const created_event = await eventModel.find({ userId: userId,  ...filter });
                 
           // Fetch events where the user is invited
           const invitedEvents = await InvitedeventModel.find({ 'Guests.phone_no': user.phone_no, ...filter1 });
+
+          // Fetch co_host event where user is co_host
+             const co_host_event = await eventModel.find({ 'co_hosts.phone_no' : user.phone_no , ...filter , ...filter1 })
   
           // Add eventType field to distinguish created events and invited events
           const userEventsWithEventType = created_event.map(event => ({
@@ -1480,8 +1542,13 @@ const add_co_host = async (req, res) => {
               event_type_name: 2 // 2 for Invited event
           }));
   
+          const co_hostEventsWithEventType = co_host_event.map(event => ({
+              ...event.toObject(),
+              event_type_name: 3 // 3 for co_host event
+          }));
+  
           // Merge both arrays of events
-          let allEvents = [...userEventsWithEventType, ...invitedEventsWithEventType];
+          let allEvents = [...userEventsWithEventType, ...invitedEventsWithEventType, ...co_hostEventsWithEventType ];
   
           // Check if any events were found
           if (allEvents.length === 0) {
@@ -1503,10 +1570,11 @@ const add_co_host = async (req, res) => {
               filteredEvents = allEvents.filter(event => event.event_type_name === parseInt(event_type_name));
           }
   
+          const AllfilteredEvent = filteredEvents.sort((a, b) => b.createdAt - a.createdAt);
           return res.status(200).json({
               success: true,
               message: 'User events',
-              events: filteredEvents,
+              events: AllfilteredEvent,
           });
       } catch (error) {
           console.error(error);
@@ -1517,14 +1585,6 @@ const add_co_host = async (req, res) => {
       }
   };
   
-  
-
-  
-  
-    
-  
-  
-              
 
                                            /*  Contact Us */
   // API for contact us
@@ -1600,128 +1660,100 @@ const add_co_host = async (req, res) => {
                                           serverErrorMessage : 'server Error'
                           })
                         }
-                      }         
-  
-         // APi for send Invitation to event Guests            
-         const sendInvitation = async (req, res) => {
-          try {
-              const { eventId } = req.params;
-              const today = new Date();
-      
-              // Find event
-              const event = await eventModel.findOne({ _id: eventId }).populate('Guests');
-              if (!event) {
-                  return res.status(400).json({
-                      success: false,
-                      eventExistanceMessage: 'Event not found',
-                  });
-              }
-      
-              // Check if the event date is expired
-              const eventDate = new Date(event.venue_Date_and_time[0].date);
-              if (eventDate < today) {
-                  return res.status(200).json({
-                      success: false,
-                      message: "Event date is expired so you can't send invitations.",
-                  });
-              }
-      
-              // Check for existing invited event
-              const existInvitedEvent = await InvitedeventModel.findOne({ _id : eventId });
-              if (existInvitedEvent) {
-                  return res.status(200).json({ success: true, message: 'You already invite guests for this event.' });
-              }
-      
-              // Create invitations object
-              const invitation = {
-                  userId: event.userId,
-                  _id: event._id,
-                  userName: event.userName,
-                  title: event.title,
-                  description: event.description,
-                  event_Type: event.event_Type,
-                  co_hosts: event.co_hosts,
-                  Guests: event.Guests,
-                  images: event.images,
-                  event_status: event.event_status,
-                  event_key : event.event_key,
-                  venue_Date_and_time: event.venue_Date_and_time,
-                  // event_status: InvitedeventModel.schema.path('event_status').getDefault(),
-              };
-      
-              // Populate Guests array with default status
-              invitation.Guests = event.Guests.map(guest => ({
-                  Guest_Name: guest.Guest_Name,
-                  phone_no: guest.phone_no,
-                  status: 2, // Default status: 2 (pending)
-              }));
-      
-              // Save invitation to the database
-              await InvitedeventModel.create(invitation);
-      
-              // Process sending invitations
-              let invalidGuests = [];
-              for (const guest of event.Guests) {
-                  let phone_no_numeric;
-                  if (typeof guest.phone_no === 'string') {
-                      // Convert the phone number string to a double
-                      phone_no_numeric = parseFloat(guest.phone_no);
-                  } else {
-                      // If it's already a double, assign it directly
-                      phone_no_numeric = guest.phone_no;
-                  }
-                  const user = await userModel.findOne({ phone_no: phone_no_numeric });
-      
-                  if (user) {
-                      // If user exists, create notification
-                      await NotificationModel.create({
-                          eventId: event._id,
-                          title: event.title,
-                          description: event.description,
-                          userId: user._id,
-                          phone_no: guest.phone_no,
-                          event_image: event.images[0].length > 0
-                          ? event.images[0]
-                          : null,
-                          event_location: event.venue_Date_and_time.length > 0 && event.venue_Date_and_time[0].venue_location
-                          ? event.venue_Date_and_time[0].venue_location
-                          : null,
+                      }   
 
-                          message: `Hello, you are invited to ${event.title} by ${event.userName}`
+  // APi for send Invitation
+
+                      const sendInvitation = async (req, res) => {
+                        try {
+                            const { eventId } = req.params;
+                            const today = new Date();
+                            
+                            // Find event
+                            const event = await eventModel.findOne({ _id: eventId }).populate('Guests');
+                            if (!event) {
+                                return res.status(404).json({
+                                    success: false,
+                                    message: 'Event not found',
+                                });
+                            }
+                            
+                            // Check if any event date is expired
+                      const isAnyEventExpired = event.venue_Date_and_time.some(dateTime => {
+                        const eventDate = new Date(dateTime.date);
+                        eventDate.setDate(eventDate.getDate() + 1); // Add one day
+                        return eventDate < today;
                       });
-                  } else {
-                      // If user does not exist, push to invalid guests list
-                      invalidGuests.push({ Guest_Name: guest.Guest_Name, phone_no: guest.phone_no });
-                  }
-              }
-      
-              // Send invitations to invalid guests via SMS
-              if (invalidGuests.length > 0) {
-                  for (const guest of invalidGuests) {
-                      // Convert the phone number string to numeric format
-                      const phone_no_numeric = parseInt(guest.phone_no, 10);
-                      const formattedPhoneNumber = `+91${phone_no_numeric}`;
-                      const message = `Hello, you are invited to ${event.title} by ${event.userName}. Receive updates about the event on the link: https://localhost.com`;
-      
-                      // Use SMS Gateway Hub to send SMS
-                      await sendSMSUsingGatewayHub(formattedPhoneNumber, message);
-                  }
-              }
-      
-              res.status(200).json({
-                  success: true,
-                  message: 'Invitation sent successfully ....!!',
-              });
-          } catch (error) {
-              console.error('Error:', error.response ? error.response.data : error.message);
-              res.status(500).json({
-                  success: false,
-                  message : 'SERVER ERROR',
-                  error_message : error.message
-              });
-          }
-      };
-      
+
+                    if (isAnyEventExpired) {
+                      // If any event date is in the past
+                      return res.status(400).json({
+                          success: false,
+                          message: "Event date is expired so you can't send invitations.",
+                      });
+                    }
+
+                            
+                            // Check for existing invited event
+                            const existingInvitedEvent = await InvitedeventModel.findOne({ _id: eventId });
+                            if (existingInvitedEvent) {
+                                return res.status(200).json({
+                                    success: false,
+                                    message: 'Invitations for this event have already been sent.',
+                                });
+                            }
+                            
+                            // Convert date strings to Date objects and store in desired format
+                            const venueDateTimes = event.venue_Date_and_time.map(dateTime => {
+                              const eventDate = new Date(dateTime.date);
+                              eventDate.setDate(eventDate.getDate()); 
+                              return {
+                                  ...dateTime,
+                                  date: eventDate.toISOString().split('T')[0] // Convert to YYYY-MM-DD format
+                              };
+                          });
+                          
+                            // Construct invitation object
+                            const invitation = {
+                                _id: eventId,
+                                userId: event.userId,
+                                userName: event.userName,
+                                title: event.title,
+                                description: event.description,
+                                event_Type: event.event_Type,
+                                co_hosts: event.co_hosts,
+                                Guests: event.Guests.map(guest => ({
+                                    Guest_Name: guest.Guest_Name,
+                                    phone_no: guest.phone_no,
+                                    status: 2, // Default status: 2 (pending)
+                                })),
+                                images: event.images,
+                                event_status: event.event_status,
+                                event_key: event.event_key,
+                                venue_Date_and_time: venueDateTimes,
+                            };
+                            
+                            // Save invitation to the database
+                            await InvitedeventModel.create(invitation);
+                            
+                            // Process sending invitations
+                            // ... (omitted for brevity)
+                            
+                            res.status(200).json({
+                                success: true,
+                                message: 'Invitation sent successfully.',
+                            });
+                            
+                        } catch (error) {
+                            console.error('Error:', error);
+                            res.status(500).json({
+                                success: false,
+                                message: 'Server error',
+                                error: error.message,
+                            });
+                        }
+                    };
+                          
 
          
             
@@ -1878,6 +1910,7 @@ const add_co_host = async (req, res) => {
             const {
               title,
               description,
+              city_Name,
               event_Type,
               sub_event_title,
               venue_Name,
@@ -1935,14 +1968,21 @@ const add_co_host = async (req, res) => {
             if (description) {
               existingEvent.description = description;
             }
+            if (city_Name) {
+              existingEvent.city_Name = city_Name;
+            }
             if (event_Type) {
               existingEvent.event_Type = event_Type;
             }           
             
 
             if (event_key === 1) {
-              
+              if (existingEvent.event_key === 2) {
+                // Empty the venue_Date_and_time array
+                existingEvent.venue_Date_and_time = [];
+               }
               const venueArrayLength = existingEvent.venue_Date_and_time.length;
+
         
               if (venueArrayLength === 1) {
                 // Update the existing venue details
@@ -1966,16 +2006,16 @@ const add_co_host = async (req, res) => {
                 }
                 else
                 {
-                  
+                  existingEvent.venue_Date_and_time.push({
+                    sub_event_title,
+                    venue_Name,
+                    venue_location,
+                    date,
+                    start_time,
+                    end_time,
+                  });
                 }
-                existingEvent.venue_Date_and_time.push({
-                  sub_event_title,
-                  venue_Name,
-                  venue_location,
-                  date,
-                  start_time,
-                  end_time,
-                });
+               
               } else {
                 // Handle the case where venueArrayLength is greater than 1 (which should not happen)
                 return res.status(400).json({
@@ -2137,7 +2177,7 @@ const add_co_host = async (req, res) => {
 const userRespondToInvitedEvent = async (req, res) => {
   try {
     const eventId = req.params.eventId;
-    const { response, event_title, selected_subEvent_Names, phone_no } = req.body;
+    const { response, event_title, selected_subEvent_Id, venueStatus, phone_no } = req.body;
 
     // Check if the event exists
     const invitedEvent = await InvitedeventModel.findOne({ _id : eventId });
@@ -2158,68 +2198,154 @@ const userRespondToInvitedEvent = async (req, res) => {
         userExistanceMessage: 'User not found ',
       });
     }
-        // Check if the user has already responded to the event
-      const userResponse = await userResponseEventModel.findOne({
-        eventId : eventId ,
-        'Guests.phone_no': user.phone_no,
+           const event_key = invitedEvent.event_key 
+
+    // Check if the user has already responded to the event
+    const userResponse = await userResponseEventModel.findOne({
+      eventId : eventId ,
+      'Guests.phone_no': user.phone_no,
+    });
+
+    // if (userResponse) {
+    //   return res.status(200).json({
+    //     success: false,
+    //     responseMessage: 'You already responded to the event',
+    //   });
+    // }     
+    if (event_key === 1) {
+      const responseMapping = {
+        Yes: 'accept',
+        No: 'reject',
+        Maybe: 'undecided',       
+      };
+
+      const venueStatus = responseMapping[response] === 'accept' || responseMapping[response] === 'some' ? 1 : responseMapping[response] === 'no' ? 2 : 0;
+
+      const existingUserResponse = await userResponseEventModel.findOne({
+        InvitedEventId: invitedEvent._id,
       });
 
-      if (userResponse) {
-        return res.status(400).json({
-          success: false,
-          responseMessage: 'You already responded to the event',
+      if (existingUserResponse) {
+        existingUserResponse.Guests.push({
+          Guest_Name: user.fullName,
+          phone_no: user.phone_no,
+          status: responseMapping[response] === 'accept' ? 0 : responseMapping[response] === 'reject' ? 1 : responseMapping[response] === 'accept-some' ? 0 : 3,
+          venue: invitedEvent.venue_Date_and_time.length === 1 ? invitedEvent.venue_Date_and_time.map((venueDetails, index) => ({
+            sub_event_title: venueDetails.sub_event_title,
+            venue_status: venueStatus,
+          })) : [],
+          eventId: eventId,
         });
-      }
-    // Create a single response record for the entire event
-    const responseMapping = {
-      yes: 'accept',
-      no: 'reject',
-      maybe: 'undecided',
-      'yes-multiple': 'accept-all',
-      'some-multiple': 'accept-some',
-      'no-multiple': 'reject',
-    };
 
-    const venueStatus = responseMapping[response] === 'accept' || responseMapping[response] === 'some' ? 1 : responseMapping[response] === 'no' ? 2 : 0;
+        // existingUserResponse.Guests.forEach(guest => {
+        //   guest.venue.forEach(venue => {
+        //     venue.venue_status = venueStatus;
+        //   });
+        // });
+
+        await existingUserResponse.save();
+        invitedEvent.Guests.forEach(guest => {
+          if (guest.phone_no === user.phone_no) {
+            guest.status = responseMapping[response] === 'accept' ? 0 : responseMapping[response] === 'reject' ? 1 : responseMapping[response] === 'accept-some' ? 0 : 3;
+          }
+        });
+
+        await invitedEvent.save()
+      } else {
+        const newUserResponse = new userResponseEventModel({
+          hostId: invitedEvent.hostId,
+          hostName: invitedEvent.hostName,
+          InvitedEventId: invitedEvent._id,
+          eventId: eventId,
+          event_title: invitedEvent.venue_Date_and_time.length === 1 ? event_title : invitedEvent.event_title,
+          event_description: invitedEvent.event_description,
+          event_Type: invitedEvent.event_key,
+          Guests: [
+            {
+              Guest_Name: user.fullName,
+              phone_no: user.phone_no,
+              status: responseMapping[response] === 'accept' ? 0 : responseMapping[response] === 'reject' ? 1 : responseMapping[response] === 'accept-some' ? 0 : 3,
+              venue: invitedEvent.venue_Date_and_time.length === 1 ? invitedEvent.venue_Date_and_time.map((venueDetails, index) => ({
+                sub_event_title: venueDetails.sub_event_title,
+                venue_status: venueStatus,
+              })) :  [],
+            },
+          ],
+          images: invitedEvent.images,
+        });
+
+        await newUserResponse.save();
+        invitedEvent.Guests.forEach(guest => {
+          if (guest.phone_no === user.phone_no) {
+            guest.status = responseMapping[response] === 'accept' ? 0 : responseMapping[response] === 'reject' ? 1 : responseMapping[response] === 'accept-some' ? 0 : 3;
+          }
+        });
+
+        await invitedEvent.save();
+      }
+    } 
+                  else if(event_key === 2)
+             {
+              // Create a single response record for the entire event
+    const responseMapping = {
+      Yes: 'accept',
+      No: 'reject',
+      Some: 'acceptsome'
+     
+    };
 
     // Check if there is an existing record in userResponseEventModel for the same InvitedEventId
     const existingUserResponse = await userResponseEventModel.findOne({
       InvitedEventId: invitedEvent._id,
     });
 
-    if (existingUserResponse) {
-      // Update the existing record
-      existingUserResponse.Guests.push({
-        Guest_Name: user.fullName,
-        phone_no: user.phone_no,
-        status: responseMapping[response] === 'accept' ? 0 : responseMapping[response] === 'reject' ? 1 : responseMapping[response] === 'accept-some' ? 0 : 3,
-        venue: invitedEvent.venue_Date_and_time.length === 1 ? invitedEvent.venue_Date_and_time.map((venueDetails, index) => ({
-          sub_event_title: venueDetails.sub_event_title,
-          venue_status: venueStatus,
-        })) : (selected_subEvent_Names && selected_subEvent_Names.length > 0) ? selected_subEvent_Names.map((sub_event_title, index) => ({
-          sub_event_title: sub_event_title,
-          venue_status: venueStatus,
-        })) : [],
-        eventId: eventId, 
-      });
+    let existingGuest = null;
 
-      // Update each sub_event_status based on the user's response
-      existingUserResponse.Guests.forEach(guest => {
-        guest.venue.forEach(venue => {
-          venue.venue_status = venueStatus;
+    if (existingUserResponse) {
+      // Check if the guest already exists
+      existingGuest = existingUserResponse.Guests.find(guest => guest.phone_no === user.phone_no);
+
+      if (existingGuest) {
+        // If the guest exists, update their response
+        selected_subEvent_Id.forEach((subEventId, index) => {
+          const venueIndex = existingGuest.venue.findIndex(venue => venue.sub_event_Id === subEventId);
+          if (venueIndex !== -1) {
+            existingGuest.venue[venueIndex].venue_status = venueStatus[index];
+          } else {
+              
+            existingGuest.venue.push({
+              sub_event_Id: subEventId,
+              sub_event_title: subEventId.sub_event_title, 
+              venue_status: venueStatus[index],
+            });
+          }
         });
-      });
+      } else {
+        // If the guest does not exist, create a new guest object
+        existingUserResponse.Guests.push({
+          Guest_Name: user.fullName,
+          phone_no: user.phone_no,
+          status: responseMapping[response] === 'accept' ? 0 : responseMapping[response] === 'reject' ? 1 : responseMapping[response] === 'acceptsome' ? 0 : 3,
+          venue: selected_subEvent_Id.map((subEventId, index) => ({
+            sub_event_Id: subEventId,
+            sub_event_title: subEventId.sub_event_title, 
+            venue_status: venueStatus[index],
+          })),
+          eventId: eventId, 
+        });
+      }
 
       // Save the updated record
       await existingUserResponse.save();
+
       invitedEvent.Guests.forEach(guest => {
         if (guest.phone_no === user.phone_no) {
-          guest.status = responseMapping[response] === 'accept' ? 0 : responseMapping[response] === 'reject' ? 1 : responseMapping[response] === 'accept-some' ? 0 : 3;
+          guest.status = responseMapping[response] === 'accept' ? 0 : responseMapping[response] === 'reject' ? 1 : responseMapping[response] === 'acceptsome' ? 0 : 3;
         }
       });
-    
+
       // Save the updated invitedEvent
-      await invitedEvent.save()
+      await invitedEvent.save();
     } else {
       // Create a new record if it doesn't exist
       const newUserResponse = new userResponseEventModel({
@@ -2230,35 +2356,32 @@ const userRespondToInvitedEvent = async (req, res) => {
         event_title: invitedEvent.venue_Date_and_time.length === 1 ? event_title : invitedEvent.event_title,
         event_description: invitedEvent.event_description,
         event_Type: invitedEvent.event_key,
-        Guests: [
-          {
-            Guest_Name: user.fullName,
-            phone_no: user.phone_no,
-            status: responseMapping[response] === 'accept' ? 0 : responseMapping[response] === 'reject' ? 1 : responseMapping[response] === 'accept-some' ? 0 : 3,
-            venue: invitedEvent.venue_Date_and_time.length === 1 ? invitedEvent.venue_Date_and_time.map((venueDetails, index) => ({
-              sub_event_title: venueDetails.sub_event_title,
-              venue_status: venueStatus,
-            })) : (selected_subEvent_Names && selected_subEvent_Names.length > 0) ? selected_subEvent_Names.map((sub_event_title, index) => ({
-              sub_event_title: sub_event_title,
-              venue_status: venueStatus,
-            })) : [],
-          },
-        ],
+        Guests : [{
+          Guest_Name: user.fullName,
+          phone_no: user.phone_no,
+          status: responseMapping[response] === 'accept' ? 0 : responseMapping[response] === 'reject' ? 1 : responseMapping[response] === 'acceptsome' ? 0 : 3,
+          venue: selected_subEvent_Id.map((subEventId, index) => ({
+            sub_event_Id: subEventId,
+            sub_event_title: subEventId.sub_event_title, 
+            venue_status: venueStatus[index],
+          })),
+        }],
         images: invitedEvent.images,
       });
-    
+
       // Save the new record
       await newUserResponse.save();
+
       invitedEvent.Guests.forEach(guest => {
         if (guest.phone_no === user.phone_no) {
-          guest.status = responseMapping[response] === 'accept' ? 0 : responseMapping[response] === 'reject' ? 1 : responseMapping[response] === 'accept-some' ? 0 : 3;
+          guest.status = responseMapping[response] === 'accept' ? 0 : responseMapping[response] === 'reject' ? 1 : responseMapping[response] === 'acceptsome' ? 0 : 3;
         }
       });
-    
+
       // Save the updated invitedEvent
       await invitedEvent.save();
-    }
-        
+    }    }
+    
     return res.status(200).json({
       success: true,
       responseMessage: 'Event response saved successfully',
@@ -2271,6 +2394,8 @@ const userRespondToInvitedEvent = async (req, res) => {
     });
   }
 };
+
+
 
 
 
@@ -2293,7 +2418,7 @@ const userRespondToInvitedEvent = async (req, res) => {
             const event = await eventModel.findOne({ _id: eventId });
         
             if (!event) {
-              return res.status(404).json({
+              return res.status(200).json({
                 success: false,
                 message: 'Event not found',
               });
@@ -2303,7 +2428,7 @@ const userRespondToInvitedEvent = async (req, res) => {
             const invitationEvent = await InvitedeventModel.findOne({ _id: eventId });
         
             if (!invitationEvent) {
-              return res.status(404).json({
+              return res.status(200).json({
                 success: false,
                 message: 'Invitation event not found',
               });
@@ -2854,6 +2979,7 @@ const userRespondToInvitedEvent = async (req, res) => {
 
        
         const { parse, format, eachDayOfInterval } = require('date-fns');
+const e = require('cors')
 
 
         const get_Event_on_date = async (req, res) => {
@@ -2888,6 +3014,7 @@ const userRespondToInvitedEvent = async (req, res) => {
                   const eventDetails = [];
                   const created_event_Details = [];
                   const invited_event_details = [];
+                  const co_host_event_details = [];
       
                   for (const date of allDatesInMonth) {
                       const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
@@ -2899,6 +3026,10 @@ const userRespondToInvitedEvent = async (req, res) => {
                               userId: userId,
                               'venue_Date_and_time.date': formattedDate,
                           });
+                            const co_host_event = await eventModel.find({
+                              'co_hosts.phone_no' : user.phone_no ,
+                              'venue_Date_and_time.date': formattedDate,
+                            })
                           var dateObj = new Date(formattedDate);
 
                         // Extract year, month, and day from the date object
@@ -2912,16 +3043,18 @@ const userRespondToInvitedEvent = async (req, res) => {
                               'Guests.phone_no': phone_no,
                               'venue_Date_and_time.date': formattedDates,
                           });
+                           
       
                           created_event_Details.push(...created_events.map(event => ({ ...event._doc, event_type_name: 1 })));
                           invited_event_details.push(...invitedEvents.map(event => ({ ...event._doc, event_type_name: 2 })));
-
+                          co_host_event_details.push(...co_host_event.map(event => ({ ...event._doc, event_type_name: 3})))
                         
       
                           eventDetails.push({
                               date: formattedDate,
                               created_eventCount: created_events.length,
                               invited_eventCount: invitedEvents.length,
+                              co_host_eventCount : co_host_event.length
                           });
                       } else {
                           // If the current date is not the specified date, push an empty entry
@@ -2932,7 +3065,7 @@ const userRespondToInvitedEvent = async (req, res) => {
                           });
                       }
                   }
-                  const allEvents = [...created_event_Details, ...invited_event_details];
+                  const allEvents = [...created_event_Details, ...invited_event_details, ...co_host_event_details];
                   return res.status(200).json({
                       success: true,
                       message: 'Event Details',
@@ -2949,6 +3082,7 @@ const userRespondToInvitedEvent = async (req, res) => {
                   const eventDetails = [];
                   const created_event_Details = [];
                   const invited_event_details = [];
+                  const co_host_event_details = [];
       
                   for (const date of allDatesInMonth) {
                       const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
@@ -2958,6 +3092,10 @@ const userRespondToInvitedEvent = async (req, res) => {
                           userId: userId,
                           'venue_Date_and_time.date': formattedDate,
                       });
+                      const co_host_event = await eventModel.find({
+                        'co_hosts.phone_no' : user.phone_no ,
+                        'venue_Date_and_time.date': formattedDate,
+                      })
                         var dateObj = new Date(formattedDate);
 
                       // Extract year, month, and day from the date object
@@ -2975,15 +3113,17 @@ const userRespondToInvitedEvent = async (req, res) => {
       
                       created_event_Details.push(...events.map(event => ({ ...event._doc, event_type_name: 1 })));
                       invited_event_details.push(...invitedEvents.map(event => ({ ...event._doc, event_type_name: 2 })));
+                      co_host_event_details.push(...co_host_event.map(event => ({ ...event._doc, event_type_name: 3 })));
       
       
                       eventDetails.push({
                           date: formattedDate,
                           created_eventCount: events.length,
                           invited_eventCount: invitedEvents.length,
+                          co_host_eventCount: co_host_event.length,
                       });
                   }
-                  const allEvents = [...created_event_Details, ...invited_event_details];
+                  const allEvents = [...created_event_Details, ...invited_event_details, ...co_host_event_details];
                   return res.status(200).json({
                       success: true,
                       message: 'Event Details',
@@ -3007,94 +3147,6 @@ const userRespondToInvitedEvent = async (req, res) => {
       };
       
 
-      
-
-      // APi for get event on month
-
-      // const { parse, format, eachDayOfInterval } = require('date-fns');
-
-      const getEventsByMonth = async (req, res) => {
-          try {
-              const userId = req.params.userId;
-              const { month, year  } = req.query;
-      
-              // Check for month and year
-              if (!month || !year) {
-                  return res.status(200).json({
-                      success: false,
-                      date_required: 'Month and year are required',
-                  });
-              }
-      
-              if (!userId) {
-                  return res.status(200).json({
-                      success: false,
-                      userId_required: 'userId required',
-                  });
-              }
-      
-              const user = await userModel.findOne({ _id: userId });
-      
-              if (!user) {
-                  return res.status(200).json({
-                      success: false,
-                      userExistanceMessage: 'User not found',
-                  });
-              }
-      
-              const phone_no = user.phone_no;
-      
-              // Parse the input month and year
-              const parsedDate = parse(`${month} ${year}`, 'MMM yyyy', new Date());
-              
-              // Calculate the start and end dates for the month
-              const startDate = new Date(parsedDate.getFullYear(), parsedDate.getMonth() , 1);
-              const endDate = new Date(parsedDate.getFullYear(), parsedDate.getMonth() + 1, 0);
-      
-              // Generate an array of all dates in the month
-              const allDatesInMonth = eachDayOfInterval({ start: startDate, end: endDate });
-      
-              // Fetch created events and invited events for each date in the month
-              const eventDetails = {};
-      
-              for (const date of allDatesInMonth) {
-                  const formattedDate = format(date, 'yyyy-MM-dd');
-                  
-                  const events = await eventModel.find({
-                      userId: userId,
-                      'venue_Date_and_time.date': formattedDate,
-                  });
-      
-                  const invitedEvents = await InvitedeventModel.find({
-                      'Guests.phone_no': phone_no,
-                      'venue_Date_and_time.date': formattedDate,
-                  });
-      
-                  eventDetails[formattedDate] = {
-                      created_event_Details: events || [],
-                      invited_event_details: invitedEvents || [], 
-                      created_eventCount : (events || []).length,
-                      invited_eventCount :  (invitedEvents || []).length
-                      
-                  };
-              }
-      
-              return res.status(200).json({
-                  success: true,
-                  message: 'Event Details',
-                  eventDetails: eventDetails,
-              });
-      
-          } catch (error) {
-              console.error(error);
-              return res.status(500).json({
-                  success: false,
-                  message: 'Server error',
-              });
-          }
-      };
-      
-      
 
                                                   /* Event Feed Section */
       // Api for create  feed in event
@@ -3573,7 +3625,7 @@ const userRespondToInvitedEvent = async (req, res) => {
   
           // Combine notifications from both models into a single array
           const combinedNotifications = notifications.flat();
-  
+            
           // Check if no notifications are found
           if (combinedNotifications.length === 0) {
               return res.status(200).json({
@@ -3594,7 +3646,8 @@ const userRespondToInvitedEvent = async (req, res) => {
                   title: notification.title,                  
                   event_image : notification.event_image,
                   date : notification.createdAt,
-                  event_location : notification.event_location
+                  event_location : notification.event_location,
+                  status : notification.status
 
 
               }))
@@ -3653,23 +3706,1647 @@ const userRespondToInvitedEvent = async (req, res) => {
 };
 
 
+// APi for change notification status
+const changeNotification_status = async (req, res) => {
+  try {
+      const notification_id = req.params.notification_id;
+
+      // check for required fields
+      if (!notification_id) {
+          return res.status(400).json({
+              success: false,
+              message: 'Notification Id required'
+          });
+      }
+
+      // Check for notification in both models
+      let notification = await NotificationModel.findOne({ _id: notification_id });
+
+      if (!notification) {
+          notification = await UsersNotificationModel.findOne({ _id: notification_id });
+      }
+
+      if (notification) {
+          // Update the notification status
+          notification.status = 0;
+          await notification.save();
+
+          return res.status(200).json({
+              success: true,
+              message: 'Notification seen '
+          });
+      } else {
+          return res.status(404).json({
+              success: false,
+              message: 'Notification not found'
+          });
+      }
+  } catch (error) {
+      console.error('Error:', error);
+      return res.status(500).json({
+          success: false,
+          message: 'Server error'
+      });
+  }
+};
+
+
+// get event by Id
+const getInvitedEvent = async(req , res) =>{
+  try {
+    const eventId = req.params.eventId;
+
+    // Validate eventId (you may want to add more validation)
+    if (!eventId) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid eventId',
+      });
+    }
+
+    const event = await InvitedeventModel.findOne({ _id : eventId } );
+
+    if (!event) {
+      return res.status(200).json({
+        success: false,
+        message: 'Event not found',
+      });
+    }
+       const userId = event.userId
+       // check for user
+       const user = await userModel.findOne({ _id : userId })
+       const user_phone = user.phone_no
+    res.status(200).json({
+      success: true,
+      message: 'Event found',
+      event_data: {
+                   userName : event.userName,
+                   title : event.title,
+                   description : event.description,
+                   event_type : event.event_Type,
+                   images : event.images,
+                   user_phone : user_phone,
+                   venue_location : event.venue_Date_and_time[0].venue_location,
+                   venue_Name : event.venue_Date_and_time[0].venue_Name,
+                   date : event.venue_Date_and_time[0].date,
+                   start_time :event.venue_Date_and_time[0].start_time,
+                   end_time : event.venue_Date_and_time[0].end_time,
+
+                   venue_Date_and_time : event.venue_Date_and_time
+      
+      }
+        
+    });
+  } catch (error) {                              
+    return res.status(500).json({
+      success: false,
+      message: 'There is a server error',
+    });
+  }
+};
 
 
 
+                                      /*   Todo Section */
+
+    // Api for create todo list
+    const createTodo = async (req, res) => {
+      try {
+          const userId = req.params.userId;
+          const { title, description, date, due_on, status, assign_to } = req.body;
+  
+          // Check for required fields
+          const requiredFields = ['title', 'description', 'date', 'due_on', 'status', 'assign_to'];
+          for (const field of requiredFields) {
+              if (!req.body[field]) {
+                  return res.status(400).json({
+                      success: false,
+                      message: `${field} is required`
+                  });
+              }
+          }
+  
+          if (!userId) {
+              return res.status(400).json({
+                  success: false,
+                  message: 'userId required'
+              });
+          }
+  
+          // Check for user
+          const user = await userModel.findOne({
+              _id: userId
+          });
+  
+          if (!user) {
+              return res.status(400).json({
+                  success: false,
+                  message: 'User not found'
+              });
+          }
+  
+          // Extract userName and profileImage from the user
+          const { fullName: userName, profileImage: user_profileImage } = user;
+  
+          // Attach the file or document in todo_attachment
+          let attachment = req.file.filename;
+          
+  
+          const newTodo = new todoModel({
+              title,
+              userId,
+              userName,
+              user_profileImage,
+              description,
+              date,
+              due_on,
+              status,              
+              assign_to,
+              todo_attachment : attachment
+          });
+  
+          await newTodo.save();
+  
+          return res.status(200).json({
+              success: true,
+              message: 'Todo list created',
+              todoList: newTodo
+          });
+      } catch (error) {
+          return res.status(500).json({
+              success: false,
+              message: 'Server error',
+              error_message: error.message
+          });
+      }
+  };
+  
+
+  // APi for get all todo list of the user
+
+       const allTodos_of_user = async ( req ,res)=>{
+        try {
+              const userId = req.params.userId
+              // check for userId
+            if(!userId)
+            {
+              return res.status(400).json({
+                  success : false ,
+                  message : 'user id required'
+              })
+            }
+
+            // check for user
+          const user_todos = await todoModel.find({ userId : userId })
+
+          if(!user_todos)
+          {
+            return res.status(200).json({
+                  success : false ,
+                  message : 'no todos list found for the user'
+            })
+          }
+           else
+           {
+            return res.status(200).json({
+                      success : true ,
+                      message : 'user todos lists',
+                      todo_lists : user_todos
+            })
+           }
+        } catch (error) {
+          return res.status(500).json({
+                 success : false ,
+                 message : 'server error',
+                 error_message : error.message
+          })
+        }
+       }
+  
+      // Api for get particular todo
+         const getParticular_todo = async ( req , res)=> {
+          try {
+                    const todo_id = req.params.todo_id
+                  // check for required fields 
+                      if(!todo_id)
+                      {
+                        return res.status(400).json({
+                               success : false ,
+                               message : 'todo Id required'
+                        })
+                      }
+
+                      // check for todo
+                      const todo = await todoModel.findOne({ _id : todo_id })
+                      if(!todo)
+                      {
+                        return res.status(200).json({
+                               success : false ,
+                               message : 'todo not found'
+                        })
+                      }
+                      else
+                      {
+                        return res.status(200).json({
+                             success : true ,
+                              message : 'todo details',
+                              todo_details : todo
+                        })
+                      }
+          } catch (error) {
+               return res.status({
+                      success : false ,
+                      message : 'server error'
+               })
+          }
+         }
+      
+    // update particular todo
+                  const update_todo = async ( req , res )=>{
+                    try {
+                            const todo_id = req.params.todo_id
+                            const { title, description, date, due_on, status, assign_to } = req.body;
+                        // check for required fields
+
+                         if(!todo_id)
+                         {
+                          return res.status(400).json({
+                              success : false ,
+                              message : 'todo Id required'
+                          })
+                         }
+                        
+                         // check for exist todo
+
+                         const exist_todo = await todoModel.findOne({ _id : todo_id })
+                         if(!exist_todo)
+                         {
+                          return res.status(200).json({
+                                  success : false ,
+                                  message : 'no todo details found'
+                          })
+                         } 
+
+                         const attachement = req.file.filename
+
+                         exist_todo.title = title
+                         exist_todo.description  = description
+                         exist_todo.date = date
+                         exist_todo.due_on = due_on
+                         exist_todo.status = status
+                         exist_todo.assign_to = assign_to
+                         exist_todo.todo_attachment = attachement
+
+                         await exist_todo.save()
+                         return res.status(200).json({
+                           success : true ,
+                           message : 'todo list updated'
+                         })
+  
+                    } catch (error) {
+                      return res.status(500).json({
+                          success : false ,
+                          message : 'server error'
+                      })
+                    }
+                  }
+
+      // Api for delete particular todo
+                    const deleteTodo = async( req ,res)=>{
+                      try { 
+                             const todo_id = req.params.todo_id
+                        // check for todo_id as required
+                      if(!todo_id)
+                      {
+                        return res.status(400).json({
+                                success : false ,
+                                message : 'todo Id required'
+                        })
+                      }
+
+                      // check for todo
+                       const todo = await todoModel.findByIdAndDelete({ _id : todo_id })
+
+                        if(!todo)
+                        {
+                          return res.status(200).json({
+                             success : false ,
+                             message : 'todo not found',
+
+                          })
+                        }
+                        else
+                        {
+                          return res.status(200).json({
+                                   success : true ,
+                                   message : 'todo deleted successfully'
+                          })
+                        }
+                        
+                      } catch (error) {
+                        return res.status(500).json({
+                              success : false ,
+                              message : 'server error'
+                        })
+                      }
+                    }
+                                                /*   other parts */
+
+
+        // Api for get city name of event created by user
+        const get_city_name = async (req, res) => {
+          try {
+              const userId = req.params.userId;
+      
+              // Check for required fields
+              if (!userId) {
+                  return res.status(400).json({
+                      success: false,
+                      message: 'User ID required'
+                  });
+              }
+      
+              // Check for user events
+              const userEvents = await Promise.all([
+                  eventModel.find({ userId: userId }),
+                  InvitedeventModel.find({ userId: userId })
+              ]);
+      
+              // Merge user created and invited events into a single array
+              const mergedEvents = [].concat(...userEvents);
+      
+              if (!mergedEvents || mergedEvents.length === 0) {
+                  return res.status(200).json({
+                      success: false,
+                      message: 'No events found for the user'
+                  });
+              }
+      
+              // Accumulate unique city names
+              const uniqueCityNames = Array.from(new Set(mergedEvents.map(event => event.city_Name)));
+      
+              return res.status(200).json({
+                  success: true,
+                  message: 'All unique city names',
+                  city_Name: uniqueCityNames.map(city => ({ city: city })) // Format the city names as an array of objects
+              });
+          } catch (error) {
+              return res.status(500).json({
+                  success: false,
+                  message: 'Server error'
+              });
+          }
+      }
+  // get all collections created by user
+      const getAllCollections_of_user = async (req, res) => {
+        try {
+              const userId = req.params.userId
+            
+            // Fetch all collections from the bookmarkModel
+            const allCollections = await bookmarkModel.find({ userId  });
+    
+            if (!allCollections || allCollections.length === 0) {
+                return res.status(200).json({
+                    success: false,
+                    message: 'No collections found',
+                });
+            } else {
+                const collectionDetails = allCollections.map(collections => {
+                  
+                    return {
+                        collection_id: collections._id,
+                        collection_name: collections.bookmark_Collection[0].name,
+                        collection_created_date : collections.createdAt,
+                        collection_entries_count : collections.bookmark_Collection[0].bookmark_entries.length
+    
+    
+                        // bookmark_entries : collections.bookmark_Collection[0].bookmark_entries
+                    };
+                });
+    
+                res.status(200).json({
+                    success: true,
+                    message: 'All bookmark collections',
+                    allCollections: collectionDetails,
+                });
+            }
+    
+        } catch (error) {
+            console.error(error);
+            return res.status(500).json({
+                success: false,
+                message: 'Server error',
+            });
+        }
+    };
+    
+      // APi for update particular data of event
+      const update_data_of_event = async (req, res) => {
+        try {
+          const eventId = req.params.eventId;
+          const { title, description, event_Type } = req.body;
+      
+          // Check for eventId
+          if (!eventId) {
+            return res.status(400).json({
+              success: false,
+              message: 'Event Id required'
+            });
+          }
+      
+          // Check for event
+          const event = await eventModel.findOne({ _id: eventId });
+      
+          if (!event) {
+            return res.status(200).json({
+              success: false,
+              message: 'Event not found'
+            });
+          } else {
+            if (req.files && req.files.length > 0) {
+              const images = [];
+      
+              for (const file of req.files) {
+                // Ensure that the file is an image
+                if (file.mimetype.startsWith("image/")) {
+                  // If the Event Images already exist, delete the old file if it exists
+                  if (event.images && event.images.length > 0) {
+                    event.images.forEach((oldFileName) => {
+                      const oldFilePath = `uploads/${oldFileName}`;
+                      if (fs.existsSync(oldFilePath)) {
+                        fs.unlinkSync(oldFilePath);
+                      }
+                    });
+                  }
+                  // Add the new image filename to the images array
+                  images.push(file.filename);
+                }
+              }
+      
+              // Update the images with the new one(s) or create a new one if it doesn't exist
+              event.images = images.length > 0 ? images : undefined;
+            }
+      
+            // Update event details
+            event.title = title;
+            event.description = description;
+            event.event_Type = event_Type;
+      
+            // Save the updated event
+            await event.save();
+      
+            return res.status(200).json({
+              success: true,
+              message: 'Event updated successfully'
+            });
+          }
+        } catch (error) {
+          return res.status(500).json({
+            success: false,
+            message: 'Server error',
+            error_message: error.message
+          });
+        }
+      };
+
+              
+
+                                          /* CMS Section */
+      // Api for create cms slider 
+      const createcmsSlider = async (req ,res)=>{
+        try {
+               const { title  , heading  , description  } = req.body
+               const requiredFields = ['title', 'heading' , 'description' ];
+               for (const field of requiredFields)
+                {
+                   if (!req.body[field])
+                    {
+                       return res.status(400).json({
+                           success: false,
+                           message: `Missing ${field.replace('_', ' ')} field`,
+                       });
+                    }
+               }
+               // Process and store multiple image files
+              const imagePaths = req.file.filename
+            const newcmsSliderData = new cmsSliderModel({
+              title,
+              heading,
+              description, 
+              images : imagePaths                            
+             
+            })
+            await newcmsSliderData.save()
+
+            return res.status(200).json({
+                              success : true ,
+                              message : 'new msSliderData inserted successfully ...!' ,
+                               Details : newcmsSliderData
+            })
+        } catch (error) {
+          return res.status(500).json({
+                          success : false ,
+                          message : 'server Error'
+          })
+        }
+      } 
+      
+      // Api for get all cms slider content
+      const getAllsliderContent = async (req, res) => {
+        try {
+          const cmssliders = await cmsSliderModel.find({});
+          if (cmssliders.length === 0) {
+            return res.status(200).json({
+              success: false,
+              message: 'There are no cmssliders found',
+            });
+          }
+          const sorted_cmssliders= cmssliders.sort(
+            (a, b) => b.createdAt - a.createdAt
+          );
+          res.status(200).json({
+            success: true,
+            message: 'All cmssliders Data',
+           cmssliders_data: sorted_cmssliders,
+          });
+        } catch (error) {
+          return res.status(500).json({
+            success: false,
+            message: 'There is a server error',
+          });
+        }
+      };
+
+      // get particular cms slider
+      const getparticular_slider = async(req , res) =>{
+        try {
+          const cmsSliderId = req.params.cmsSliderId;
+      
+          // Validate cmsSliderId (you may want to add more validation)
+          if (!cmsSliderId) {
+            return res.status(400).json({
+              success: false,
+              message: 'Invalid cmsSliderId',
+            });
+          }
+      
+          const cmsSlider = await cmsSliderModel.findOne({ _id : cmsSliderId } );
+      
+          if (!cmsSlider) {
+            return res.status(200).json({
+              success: false,
+              message: 'cmsSlider not found',
+            });
+          }
+      
+          res.status(200).json({
+            success: true,
+            message: 'cmsSlider found',
+            cmsSlider_data: cmsSlider,
+          });
+        } catch (error) {                              
+          return res.status(500).json({
+            success: false,
+            message: ' server error',
+          });
+        }
+      };
+               
+
+  // Api for update cms slider
+           const updatecms_slider = async( req , res)=>{
+            try {
+                     const cmsSliderId = req.params.cmsSliderId
+                const { title  , heading  , description } = req.body
+                // check for cmsSliderId
+              
+                if(!cmsSliderId)
+                {
+                  return res.status(400).json({
+                        success : false ,
+                        message : 'cmsSliderId required'
+                  })
+                }
+
+                 // check for cms slider
+                 const cmsSlider = await cmsSliderModel.findOne({
+                            _id : cmsSliderId 
+                 })
+                   if(!cmsSlider)
+                   {
+                    return res.status(200).json({
+                            success : false ,
+                            message : 'cms slider not found'
+                    })
+                   }
+
+                   const images = req.file.filename
+                   cmsSlider.title = title
+                   cmsSlider.heading = heading
+                   cmsSlider.description = description
+                   cmsSlider.images = images
+
+                   await cmsSlider.save()
+
+                   return res.status(200).json({
+                         success : true ,
+                         message : ' cms slider updated '
+                   })
+            } catch (error) {
+              return res.status(500).json({
+                      success : false ,
+                      message : 'server error',
+                      error_message : error.message
+              })
+            }
+           }
+
+    // APi for delete particular cmsSlider
+              const delete_cmsSlider = async( req , res)=>{
+                try {
+                       const cmsSliderId = req.params.cmsSliderId
+                    // check for cmsSliderId required fields
+
+                if(!cmsSliderId)
+                {
+                  return res.status(400).json({
+                       success : false ,
+                       message : 'cms SliderId required'
+                  })
+                }
+
+              // check for csmSlider and delete
+
+              const cmsSlider = await cmsSliderModel.findOneAndDelete({ _id : cmsSliderId })
+                if(!cmsSlider)
+                {
+                  return res.status(200).json({
+                         success : false ,
+                         message : 'cms slider not found',
+
+                  })
+                }
+                  else
+                  {
+                    return res.status(200).json({
+                           success : true ,
+                           message : 'cms slider deleted successfully'
+                    })
+                  }
+
+                } catch (error) {
+                   return res.status(500).json({
+                         success : false , 
+                         message : 'error message',
+                         error_message : error.message
+                   })
+                }
+              }
+
+            // Api for create manageOwn event
+      const createmanageOwnEvent = async (req ,res)=>{
+        try {
+               const { heading  , description  } = req.body
+               const requiredFields = [ 'heading' , 'description' ];
+               for (const field of requiredFields)
+                {
+                   if (!req.body[field])
+                    {
+                       return res.status(400).json({
+                           success: false,
+                           message: `Missing ${field.replace('_', ' ')} field`,
+                       });
+                    }
+               }
+               // Process for store image files
+              const imagePaths = req.file.filename
+            const newmanageOwnEvent = new manageOwnEventModel({
+             
+              heading,
+              description, 
+              images : imagePaths                            
+             
+            })
+            await newmanageOwnEvent.save()
+
+            return res.status(200).json({
+                              success : true ,
+                              message : 'manageOwnEvent inserted successfully ...!' ,
+                               Details : newmanageOwnEvent
+            })
+        } catch (error) {
+          return res.status(500).json({
+                          success : false ,
+                          message : 'server Error',
+                          error_message : error.message
+          })
+        }
+      } 
+
+    // Api for get all  manageOwnEventContent
+    const getAllmanageOwnEventContent = async (req, res) => {
+      try {
+        const manageOwnEventContent = await manageOwnEventModel.find({});
+        if (manageOwnEventContent.length === 0) {
+          return res.status(200).json({
+            success: false,
+            message: 'There are no manageOwnEventContent found',
+          });
+        }
+        const sorted_manageOwnEventContent= manageOwnEventContent.sort(
+          (a, b) => b.createdAt - a.createdAt
+        );
+        res.status(200).json({
+          success: true,
+          message: 'All manageOwnEventContent Data',
+          manageOwnEventContent_data: sorted_manageOwnEventContent,
+        });
+      } catch (error) {
+        return res.status(500).json({
+          success: false,
+          message: ' server error',
+        });
+      }
+    };
+
+    // get particular cms slider
+    const getparticular_manageOwnEventContent = async(req , res) =>{
+      try {
+        const manageOwnEventContent_Id = req.params.manageOwnEventContent_Id;
+    
+        // Validate manageOwnEventContent_Id (you may want to add more validation)
+        if (!manageOwnEventContent_Id) {
+          return res.status(400).json({
+            success: false,
+            message: 'Invalid manageOwnEventContent_Id',
+          });
+        }
+    
+        const manageOwnEventContent = await manageOwnEventModel.findOne({ _id : manageOwnEventContent_Id } );
+    
+        if (!manageOwnEventContent) {
+          return res.status(200).json({
+            success: false,
+            message: 'manageOwnEventContent not found',
+          });
+        }
+    
+        res.status(200).json({
+          success: true,
+          message: 'manageOwnEventContent found',
+          manageOwnEventContent: manageOwnEventContent,
+        });
+      } catch (error) {                              
+        return res.status(500).json({
+          success: false,
+          message: ' server error',
+        });
+      }
+    };
+
+     // Api for update cms slider
+     const updatemanageOwnEventContent = async( req , res)=>{
+      try {
+               const manageOwnEventContent_Id = req.params.manageOwnEventContent_Id
+          const { heading  , description } = req.body
+          // check for cmsSliderId
+        
+          if(!manageOwnEventContent_Id)
+          {
+            return res.status(400).json({
+                  success : false ,
+                  message : 'manageOwnEventContent_Id required'
+            })
+          }
+
+           // check for cms slider
+           const manageOwnEventContent = await manageOwnEventModel.findOne({
+                      _id : manageOwnEventContent_Id 
+           })
+             if(!manageOwnEventContent)
+             {
+              return res.status(200).json({
+                      success : false ,
+                      message : 'manageOwnEventContent not found'
+              })
+             }
+
+             const images = req.file.filename
+           
+             manageOwnEventContent.heading = heading
+             manageOwnEventContent.description = description
+             manageOwnEventContent.images = images
+
+             await manageOwnEventContent.save()
+
+             return res.status(200).json({
+                   success : true ,
+                   message : ' manageOwnEventContent updated '
+             })
+      } catch (error) {
+        return res.status(500).json({
+                success : false ,
+                message : 'server error',
+                error_message : error.message
+        })
+      }
+     }
+
+      // APi for delete particular manageOwnEventContent
+      const delete_manageOwnEventContent = async( req , res)=>{
+        try {
+               const manageOwnEventContent_id = req.params.manageOwnEventContent_id
+            // check for cmsSliderId required fields
+
+        if(!manageOwnEventContent_id)
+        {
+          return res.status(400).json({
+               success : false ,
+               message : 'cms manageOwnEventContent_id required'
+          })
+        }
+
+      // check for manageOwnEventContent and delete
+
+      const manageOwnEventContent = await manageOwnEventModel.findOneAndDelete({ _id : manageOwnEventContent_id })
+        if(!manageOwnEventContent)
+        {
+          return res.status(200).json({
+                 success : false ,
+                 message : 'manageOwnEventContent not found',
+
+          })
+        }
+          else
+          {
+            return res.status(200).json({
+                   success : true ,
+                   message : 'manageOwnEventContent deleted successfully'
+            })
+          }
+
+        } catch (error) {
+           return res.status(500).json({
+                 success : false , 
+                 message : 'error message',
+                 error_message : error.message
+           })
+        }
+      }
+
+
+
+    // Api for createcmsAppDownload
+    const createAndUpdatecmsAppDownload = async (req, res) => {
+      try {
+          const { heading, description } = req.body;
+          const requiredFields = ['heading', 'description'];
+          for (const field of requiredFields) {
+              if (!req.body[field]) {
+                  return res.status(400).json({
+                      success: false,
+                      message: `Missing ${field.replace('_', ' ')} field`,
+                  });
+              }
+          }
+  
+          // Process and store multiple image files
+             const images = req.file.filename
+  
+          // Check if there is an existing record
+          const existingRecord = await cmsDownloadAppModel.findOne();
+          if (existingRecord) {
+              existingRecord.heading = heading;
+              existingRecord.description = description;
+              existingRecord.images = images;
+  
+              await existingRecord.save();
+  
+              return res.status(200).json({
+                  success: true,
+                  message: 'cmsAppDownload updated successfully!',
+                  details: existingRecord
+              });
+          } else {
+              const newRecord = new cmsDownloadAppModel({
+                  heading,
+                  description,
+                  images: images
+              });
+  
+              const savedRecord = await newRecord.save();
+  
+              return res.status(200).json({
+                  success: true,
+                  message: 'New cmsAppDownload inserted successfully!',
+                  details: savedRecord
+              });
+          }
+      } catch (error) {
+          return res.status(500).json({
+              success: false,
+              message: 'Server Error',
+              error_message: error.message
+          });
+      }
+  }
+  
+
+    // Api for get all createcmsAppDownload
+    const getAllcmsAppDownload = async (req, res) => {
+      try {
+        const cmsAppDownload = await cmsDownloadAppModel.find({});
+        if (cmsAppDownload.length === 0) {
+          return res.status(200).json({
+            success: false,
+            message: 'There are no cmsAppDownload found',
+          });
+        }
+        const sorted_cmsAppDownload= cmsAppDownload.sort(
+          (a, b) => b.createdAt - a.createdAt
+        );
+        res.status(200).json({
+          success: true,
+          message: 'All cmsAppDownload Data',
+          cmsAppDownload: sorted_cmsAppDownload,
+        });
+      } catch (error) {
+        return res.status(500).json({
+          success: false,
+          message: ' server error',
+        });
+      }
+    };
+// create api for testimonial 
+    const createcmsTestimonial = async (req ,res)=>{
+      try {
+             const { heading  , description , userName  } = req.body
+             const requiredFields = [ 'heading' , 'description' , 'userName'];
+             for (const field of requiredFields)
+              {
+                 if (!req.body[field])
+                  {
+                     return res.status(400).json({
+                         success: false,
+                         message: `Missing ${field.replace('_', ' ')} field`,
+                     });
+                  }
+             }                  
+           const userImage = req.file.filename
+          const cmsTestimonial = new cmsTestimonialModel({
+            
+            heading,
+            description, 
+            userName : userName,
+            user_image : userImage                   
+           
+          })
+          await cmsTestimonial.save()
+
+          return res.status(200).json({
+                            success : true ,
+                            message : 'cmsTestimonial inserted successfully ...!' ,
+                             Details : cmsTestimonial
+          })
+      } catch (error) {
+        return res.status(500).json({
+                        success : false ,
+                        message : 'server Error',
+                        error_message : error.message
+        })
+      }
+    } 
+
+
+// Api for get all cms testimonial details
+       const getAlltestimonial = async(req , res)=>{
+         try {
+                  const alltestimonial = await cmsTestimonialModel.find({ })
+
+                  if(!alltestimonial)
+                  {
+                    return res.status(200).json({
+                              success : false ,
+                              message : 'no testimonial details found'
+                    })
+                  }
+                  else
+                  {
+                    return res.status(200).json({
+                            success : true,
+                            message : 'testimonial details',
+                            details : alltestimonial
+                    })
+                  }
+         } catch (error) {
+           return res.status(500).json({
+                   success : false ,
+                   message : 'server error'
+           })
+         }
+       }
+
+       // Api for get particular testimonial details
+                    const getParticular_testimonialDetails = async( req , res)=>{
+                      try {
+                              const testimonaial_id = req.params.testimonaial_id
+                        // check for testimonial Id as required fields
+                      if(!testimonaial_id)
+                      {
+                        return res.status(400).json({
+                                success : false ,
+                                message : 'testimonial Id required'
+                        })
+                      }
+                      // check for testimonial
+                    const testimonial = await cmsTestimonialModel.findOne({ _id : testimonaial_id })
+                    if(!testimonial)
+                    {
+                      return res.status(200).json({
+                              success : false ,
+                              message : 'no testimonial details found'
+                      })
+                    }
+                    else
+                    {
+                      return res.status(200).json({
+                            success : true ,
+                            message : 'testimonial details',
+                            details :  testimonial
+                      })
+                    }
+                      } catch (error) {
+                        return res.status(500).json({
+                                 success : false ,
+                                 message : 'server error'
+                        })
+                      }
+                    }
+        
+        // update testimonial 
+                       const updateTestimonial = async( req , res)=>{
+                        try {
+                               const testimonaial_id = req.params.testimonaial_id
+                          const { heading , description , userName } = req.body
+
+                          // check for testimonial Id
+                      if(!testimonaial_id)
+                      {
+                        return res.status(400).json({
+                             success : false ,
+                             message : 'testimonial Id Required '
+                        })
+                      }
+
+                      // check for testimonial 
+                      const testimonial = await cmsTestimonialModel.findOne({ _id : testimonaial_id})
+                      if(!testimonial)
+                      {
+                        return res.status(200).json({
+                             success : false,
+                             message : 'no testimonial details found'
+                        })
+                      }
+                            const userImage = req.file.filename
+                            testimonial.heading = heading
+                            testimonial.description = description
+                            testimonial.userName = userName
+                            testimonial.user_image = userImage
+                            await testimonial.save()
+
+                            return res.status(200).json({
+                               success : true,
+                               message : 'testimonial details updated'
+                            })
+                        } catch (error) {
+                          return res.status(500).json({
+                                success : false ,
+                                message : 'server error',
+                                error_message : error.message
+                          })
+                        }
+                       }
+                         
+    //Api for delete particular testimonial details
+    const deleteTestimonial = async (req, res) => {
+      try {
+          const testimonial_id = req.params.testimonial_id; 
+  
+          // Check for testimonial Id
+          if (!testimonial_id) {
+              return res.status(400).json({
+                  success: false,
+                  message: 'Testimonial Id required'
+              });
+          }
+  
+          // Check for testimonial and delete
+          const testimonial = await cmsTestimonialModel.findByIdAndDelete(testimonial_id); // Changed to findByIdAndDelete
+  
+          if (!testimonial) {
+              return res.status(200).json({
+                  success: false,
+                  message: 'No testimonial details found'
+              });
+          } else {
+              return res.status(200).json({
+                  success: true, // Corrected typo in 'true'
+                  message: 'Testimonial details deleted'
+              });
+          }
+      } catch (error) {
+          return res.status(500).json({
+              success: false,
+              message: 'Server error',
+              error_message : error.message
+          });
+      }
+  };
+       // APi for create and update social media link in cms              
+  const createAndUpdate_cmsSocialMedia = async (req, res) => {
+    try {
+        const { facebook, instagram , twitter , linkedIn , whatsapp } = req.body;
+
+        const requiredFields = ['facebook', 'instagram', 'twitter', 'linkedIn', 'whatsapp'];
+        for (const field of requiredFields) {
+            if (!req.body[field]) {
+                return res.status(400).json({
+                    success: false,
+                    message: `Missing ${field.replace('_', ' ')} field`,
+                });
+            }
+        }       
+
+        // Check if there is an existing record
+        const existingRecord = await cmssocialMediaModel.findOne();
+        if (existingRecord) {
+            existingRecord.facebook = facebook;
+            existingRecord.instagram = instagram;
+            existingRecord.twitter = twitter;
+            existingRecord.linkedIn = linkedIn;
+            existingRecord.whatsapp = whatsapp;
+          
+            await existingRecord.save();
+
+            return res.status(200).json({
+                success: true,
+                message: 'cmsSocialMedia updated successfully!',
+               
+            });
+        } else {
+            const newRecord = new cmssocialMediaModel({
+              facebook,
+              instagram,
+              twitter,
+              linkedIn,
+              whatsapp
+            });
+
+            const savedRecord = await newRecord.save();
+
+            return res.status(200).json({
+                success: true,
+                message: 'New cmsSocialMedia inserted successfully!',
+                details: savedRecord
+            });
+        }
+    } catch (error) {
+        return res.status(500).json({
+            success: false,
+            message: 'Server Error',
+            error_message: error.message,
+            error_message : error.message
+        });
+    }
+}
+
+// Api for get cmsSocialMedia
+   const get_cmsSocialMedia = async ( req , res)=>{
+    try {
+            // check for cmsSocialMedia
+        const cmsSocialMedia = await cmssocialMediaModel.find({ })
+        if(!cmsSocialMedia)
+        {
+          return res.status(200).json({
+                success : false,
+                message : 'no cmsSocialMedia details found'
+          })
+        }
+        else
+        {
+          return res.status(200).json({
+              success : true ,
+              message : 'cmsSocialMedia Details',
+              Details : cmsSocialMedia
+          })
+        }
+    } catch (error) {
+      return res.status(500).json({
+              success : false ,
+              message : 'server error',
+              error_message : error.message
+      })
+    }
+   }
+
+
+   // Api for create and update cms phone_no
+
+   const createAndUpdate_cms_Phone_no = async (req, res) => {
+    try {
+        const { phone_no1, phone_no2} = req.body;
+
+        const requiredFields = ['phone_no1', 'phone_no2'];
+        for (const field of requiredFields) {
+            if (!req.body[field]) {
+                return res.status(400).json({
+                    success: false,
+                    message: `Missing ${field.replace('_', ' ')} field`,
+                });
+            }
+        }       
+
+        // Check if there is an existing record
+        const existingRecord = await cmsPhoneModel.findOne();
+        if (existingRecord) {
+            existingRecord.phone_no1 = phone_no1;
+            existingRecord.phone_no2 = phone_no2;
+           
+            await existingRecord.save();
+
+            return res.status(200).json({
+                success: true,
+                message: 'cms_Phone_no updated successfully!',
+               
+            });
+        } else {
+            const newRecord = new cmsPhoneModel({
+              phone_no1,
+              phone_no2,              
+            });
+
+            const savedRecord = await newRecord.save();
+
+            return res.status(200).json({
+                success: true,
+                message: 'New cms_Phone_no inserted successfully!',
+                details: savedRecord
+            });
+        }
+    } catch (error) {
+        return res.status(500).json({
+            success: false,
+            message: 'Server Error',
+            error_message: error.message
+        });
+    }
+}
+       
+// Api for get cms phone_no
+const get_cms_phone_no = async ( req , res)=>{
+  try {
+          // check for cmsSocialMedia
+      const cms_phone_no = await cmsPhoneModel.find({ })
+      if(!cms_phone_no)
+      {
+        return res.status(200).json({
+              success : false,
+              message : 'no cms_phone_no details found'
+        })
+      }
+      else
+      {
+        return res.status(200).json({
+            success : true ,
+            message : 'cms_phone_no Details',
+            Details : cms_phone_no
+        })
+      }
+  } catch (error) {
+    return res.status(500).json({
+            success : false ,
+            message : 'server error',
+            error_message : error.message
+    })
+  }
+ }
+
+
+  // Api for create and update cms Email
+
+  const createAndUpdate_cms_Email = async (req, res) => {
+    try {
+        const { email1, email2} = req.body;
+
+        const requiredFields = ['email1', 'email2'];
+        for (const field of requiredFields) {
+            if (!req.body[field]) {
+                return res.status(400).json({
+                    success: false,
+                    message: `Missing ${field.replace('_', ' ')} field`,
+                });
+            }
+        }       
+
+        // Check if there is an existing record
+        const existingRecord = await cmsEmaiModel.findOne();
+        if (existingRecord) {
+            existingRecord.email1 = email1;
+            existingRecord.email2 = email2;
+           
+            await existingRecord.save();
+
+            return res.status(200).json({
+                success: true,
+                message: 'cmsEmail updated successfully!',
+               
+            });
+        } else {
+            const newRecord = new cmsEmaiModel({
+              email1,
+              email2,              
+            });
+
+            const savedRecord = await newRecord.save();
+
+            return res.status(200).json({
+                success: true,
+                message: 'New cms_email inserted successfully!',
+                details: savedRecord
+            });
+        }
+    } catch (error) {
+        return res.status(500).json({
+            success: false,
+            message: 'Server Error',
+            error_message: error.message
+        });
+    }
+}
+  // Api for get cms_email
+const get_cms_email = async ( req , res)=>{
+  try {
+          // check for cmsSocialMedia
+      const cms_email = await cmsEmaiModel.find({ })
+      if(!cms_email)
+      {
+        return res.status(200).json({
+              success : false,
+              message : 'no cms_email details found'
+        })
+      }
+      else
+      {
+        return res.status(200).json({
+            success : true ,
+            message : 'cms_email Details',
+            Details : cms_email
+        })
+      }
+  } catch (error) {
+    return res.status(500).json({
+            success : false ,
+            message : 'server error',
+            error_message : error.message
+    })
+  }
+ }
+
+                           /* CMS ABOUT SECTION */
+   // Api for create and update cms Email
+
+   const createAndUpdate_aboutFesta = async (req, res) => {
+    try {
+        const { title, heading, description, past_event, events, schedule_events } = req.body;
+
+        const requiredFields = ['title', 'heading', 'description'];
+        for (const field of requiredFields) {
+            if (!req.body[field]) {
+                return res.status(400).json({
+                    success: false,
+                    message: `Missing ${field.replace('_', ' ')} field`,
+                });
+            }
+        }
+
+        // Process and store multiple image files
+        const imagePaths = [];
+        if (req.files && req.files.length > 0) {
+            req.files.forEach(file => {
+                imagePaths.push(file.filename);
+            });
+        }
+
+        // // Process to store video file
+        // const video = req.file ? req.file.filename : '';
+
+        // Check if there is an existing record
+        const existingRecord = await cmsAboutfesta_Model.findOne();
+        if (existingRecord) {
+            existingRecord.title = title;
+            existingRecord.heading = heading;
+            existingRecord.description = description;
+            existingRecord.past_event = past_event;
+            existingRecord.events = events;
+            existingRecord.schedule_events = schedule_events;
+            existingRecord.images = imagePaths;
+            // existingRecord.video = video;
+
+            await existingRecord.save();
+
+            return res.status(200).json({
+                success: true,
+                message: 'aboutFesta updated successfully!',
+            });
+        } else {
+            const newRecord = new cmsAboutfesta_Model({
+                title,
+                heading,
+                description,
+                past_event,
+                events,
+                schedule_events,
+                images: imagePaths,
+                // video: video
+            });
+
+            const savedRecord = await newRecord.save();
+
+            return res.status(200).json({
+                success: true,
+                message: 'New aboutFesta details inserted successfully!',
+                details: savedRecord
+            });
+        }
+    } catch (error) {
+        return res.status(500).json({
+            success: false,
+            message: 'Server Error',
+            error_message: error.message
+        });
+    }
+}
 
   
-        
-                     
-        
+                        /*   Chat section of event */
+
+
+      // APi for send text message on event
+      
+      const sendtext_message = async (req, res) => {
+        try {
+            const { eventId, userId } = req.params;
+            const { text_message } = req.body;
+    
+            // Check if eventId is provided
+            if (!eventId) {
+                return res.status(400).json({ success: false, message: 'Event ID is required.' });
+            }
+            if (!userId) {
+                return res.status(400).json({ success: false, message: 'userId is required.' });
+            }
+            if (!text_message) {
+                return res.status(400).json({ success: false, message: 'Text message is required.' });
+            }
+    
+            // check for user
+            const user = await userModel.findOne({ _id: userId })
+            if (!user) {
+                return res.status(200).json({
+                    success: false,
+                    message: 'User not found'
+                })
+            }
+    
+            const { fullName: userName, profileImage: userImage } = user;
+    
+            // Check if there's an existing chat message with the same eventId
+            let chatMessage = await chatModel.findOne({ eventId: eventId });
+    
+            // If a chat message with the same eventId exists, append the new message to its message array
+            if (chatMessage) {
+                chatMessage.message.push({
+                    userId: userId,
+                    userName: userName,
+                    user_image: userImage,
+                    text_message: text_message
+                });
+                chatMessage.message_count++;
+            } else {
+                // If no chat message with the same eventId exists, create a new chat message
+                chatMessage = new chatModel({
+                    eventId: eventId,
+                    message: [{
+                        userId: userId,
+                        userName: userName,
+                        user_image: userImage,
+                        text_message: text_message
+                    }],
+                    message_count: 1
+                });
+            }
+    
+            // Save the chat message
+            await chatMessage.save();
+    
+            return res.status(200).json({ success: true, message: 'Chat message added successfully.' });
+        } catch (error) {
+            console.error(error);
+            return res.status(500).json({ success: false, message: 'Server error.' });
+        }
+    }
+   
+    
+  // Api for get all text_messages of users
+  const getAll_text_messages_of_event = async (req, res) => {
+    try {
+        const eventId = req.params.eventId;
+
+        // Check if eventId is provided
+        if (!eventId) {
+            return res.status(400).json({
+                success: false,
+                message: 'Event Id required'
+            });
+        }
+
+        // Find all text messages for the event
+        const eventChats = await chatModel.find({ eventId: eventId });
+
+        // Check if there are any text messages
+        if (!eventChats || eventChats.length === 0) {
+            return res.status(200).json({
+                success: true,
+                message: 'There are no chats yet for the event',
+                event_chats: []
+            });
+        }
+
+        // Extract and format messages from each chat
+        const allTextMessages = eventChats.reduce((accumulator, currentChat) => {
+            accumulator.push(...currentChat.message);
+            return accumulator;
+        }, []);
+
+        // Format each message
+        const formattedMessages = allTextMessages.map(message => ({
+            userId: message.userId,
+            userName: message.userName,
+            user_image: message.user_image,
+            text_message: message.text_message,
+            sentTime: message.sentTime
+        }));
+
+        // Send response with all formatted text messages
+        return res.status(200).json({
+            success: true,
+            message: 'Event chats',
+            eventId : eventId, 
+            event_chats: formattedMessages
+        });
+    } catch (error) {
+        console.error(error);
+        return res.status(500).json({
+            success: false,
+            message: "Server error"
+        });
+    }
+}
+
+
+
+
+
+                                 
+                 
             module.exports = {
                     userSignUp , userLogin , create_Event , newVenue_Date_Time , add_co_host ,
                      edit_Venue_Date_Time , delete_Venue_Date_Time , add_guest , import_Guest ,
                      getAllGuest  , addAllGuestsToBookmark , deleteGuestInCollection , searchEvent ,
-                     getFilteredEvent , feedback , deleteEvent , deleteUser , getImages , delete_co_Host , getAllEvents,
+                      feedback , deleteEvent , deleteUser , getImages , delete_co_Host , getAllEvents,
                      getUserEvent   , contactUsPage , faqPage , sendInvitation , getMyInvitation , updateEvent , getEvent,
                      getAllInvited_Event , getVenuesOf_Event , userRespondToInvitedEvent , getAll_co_Hosts , getAllGuest_with_Response ,
                      delete_Guest , getallResponseEvent , updateUser , numberExistance , getSubEventOf_Event , getUser , deleteAllEvents ,
                      createEventAlbum , getAllAlbum , getParticularAlbum , addImages_in_Album , rename_album , deleteAlbum , deleteImage ,
                      get_Event_on_date , create_feed , get_allfeeds , delete_user_feed , like_unlike_feed , add_comments , get_all_comments ,
-                     viewFeed , getEventsByMonth , getNotification_of_user , getAllGuest_of_invitation , deleteNotificationById
+                     viewFeed  , getNotification_of_user , getAllGuest_of_invitation , deleteNotificationById , getInvitedEvent , createTodo,
+                     allTodos_of_user , getParticular_todo , update_todo , changeNotification_status , deleteTodo , get_city_name ,
+                     getAllCollections_of_user , update_data_of_event, getAll_text_messages_of_event , sendtext_message ,
+
+
+                     /* CMS */
+
+                     createcmsSlider , getAllsliderContent , getparticular_slider , updatecms_slider , delete_cmsSlider,
+                     createmanageOwnEvent , getAllmanageOwnEventContent , getparticular_manageOwnEventContent ,
+                     updatemanageOwnEventContent , delete_manageOwnEventContent ,
+                      createAndUpdatecmsAppDownload , getAllcmsAppDownload , createcmsTestimonial , getAlltestimonial,
+                      getParticular_testimonialDetails , updateTestimonial , deleteTestimonial , createAndUpdate_cmsSocialMedia,
+                      get_cmsSocialMedia , createAndUpdate_cms_Phone_no , get_cms_phone_no , createAndUpdate_cms_Email,
+                      get_cms_email ,
+
+                      /* CMS ABOUT SECTION */
+                      createAndUpdate_aboutFesta
+
+
+
 }

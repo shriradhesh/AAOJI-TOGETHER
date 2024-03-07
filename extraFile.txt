@@ -1,177 +1,27 @@
-
-
-
-const userRespondToInvitedEvent = async (req, res) => {
-                            try {
-                              const invitedId = req.params.invitedId;
-                              const { response, selectedVenueNames, phone_no } = req.body;
-
-                              // Check if the event exists
-                              const invitedEvent = await InvitedeventModel.findById(invitedId);
-
-                              if (!invitedEvent) {
-                                return res.status(400).json({
-                                  success: false,
-                                  eventMessage: 'Event not found',
-                                });
-                              }
-                                    
-                              // Check if the user is a guest in the specified event
-                              const guestWithMatchingPhone = invitedEvent.Guests.find(guest => guest.phone_no === phone_no);
-
-                              if (!guestWithMatchingPhone) {
-                                return res.status(400).json({
-                                  success: false,
-                                  eventMessage: 'User is not a guest in this event',
-                                });
-                              }
-
-                              // Now check if the user exists in userModel using the provided phone_no
-                              const user = await userModel.findOne({ phone_no });
-
-                              if (!user) {
-                                return res.status(400).json({
-                                  success: false,
-                                  userExistanceMessage: 'User not found in user table',
-                                });
-                              }
-
-                              // Check if it's a single event or multiple events
-                              if (invitedEvent.venue_Date_and_time.length === 1) {
-                                // Single Event Logic
-                                const responseMapping = {
-                                  yes: 'accept',
-                                  no: 'reject',
-                                  maybe: 'undecided',
-                                };
-
-                                const venueStatus = responseMapping[response] === 'accept' ? 1 : responseMapping[response] === 'reject' ? 2 : 0;
-
-                                // Update the guest's status based on the response
-                                const guestToUpdate = invitedEvent.Guests.find(guest => guest.phone_no === user.phone_no);
-                                guestToUpdate.guest_status = responseMapping[response] === 'accept' ? 0 : responseMapping[response] === 'reject' ? 1 : 0;
-                                guestToUpdate.venue = selectedVenueNames.map((venueName, index) => ({
-                                  venue_Name: venueName,
-                                  venue_status: venueStatus,
-                                }));
-
-                                // Save the updated event
-                                await invitedEvent.save();
-
-                                // Save the response in the userResponseEvent table
-                                const userResponse = new userResponseEventModel({
-                                  hostId: invitedEvent.hostId,
-                                  hostName: invitedEvent.hostName,
-                                  InvitedEventId: invitedEvent._id,
-                                  event_title: invitedEvent.event_title,
-                                  event_description: invitedEvent.event_description,
-                                  event_Type: invitedEvent.event_Type,
-                                  Guests: [
-                                    {
-                                      Guest_Name: user.fullName,
-                                      phone_no: user.phone_no,
-                                      guest_status: responseMapping[response] === 'accept' ? 0 : responseMapping[response] === 'reject' ? 1 : 0,
-                                      venue: selectedVenueNames.map((venueName, index) => ({
-                                        venue_Name: venueName,
-                                        venue_status: venueStatus,
-                                      })),
-                                    },
-                                  ],
-                                  images: invitedEvent.images,
-                                });
-
-                                await userResponse.save();
-
-                                return res.status(200).json({
-                                  success: true,
-                                  responseMessage: 'Event response saved successfully',
-                                });
-                              } else {
-                                // Multiple Events Logic
-                                const responseMapping = {
-                                  yes: 'accept-all',
-                                  some: 'accept-some',
-                                  no: 'reject',
-                                };
-
-                                let selectedVenueNamesForMultipleEvents = [];
-
-                                if (responseMapping[response] === 'accept-some') {
-                                  selectedVenueNamesForMultipleEvents = selectedVenueNames || [];
-                                }
-
-                                const userResponses = invitedEvent.venue_Date_and_time.map(dateTime => {
-                                  const venueStatus =
-                                    responseMapping[response] === 'accept-all'
-                                      ? 1
-                                      : responseMapping[response] === 'reject'
-                                      ? 2
-                                      : responseMapping[response] === 'accept-some' && selectedVenueNamesForMultipleEvents.includes(dateTime.venue_Name)
-                                      ? 1
-                                      : 0;
-
-                                  return {
-                                    hostId: invitedEvent.hostId,
-                                    hostName: invitedEvent.hostName,
-                                    InvitedEventId: invitedEvent._id,
-                                    event_title: invitedEvent.event_title,
-                                    event_description: invitedEvent.event_description,
-                                    event_Type: invitedEvent.event_Type,
-                                    Guests: [
-                                      {
-                                        Guest_Name: user.fullName,
-                                        phone_no: user.phone_no,
-                                        guest_status: venueStatus === 1 ? 0 : venueStatus === 2 ? 1 : 0,
-                                        venue: selectedVenueNames.map((venueName, index) => ({
-                                          venue_Name: venueName,
-                                          venue_status: venueStatus,
-                                        })),
-                                      },
-                                    ],
-                                  };
-                                });
-
-                                  // Save each response individually
-                            await userResponseEventModel.create(userResponses);
-
-                            // Update the original event's Guests array based on the responses
-                            invitedEvent.Guests.forEach(guest => {
-                              const guestToUpdate = userResponses.find(response => response.Guests[0].phone_no === guest.phone_no);
-                              if (guestToUpdate) {
-                                guest.guest_status = guestToUpdate.Guests[0].guest_status;
-                                guest.venue = guestToUpdate.Guests[0].venue;
-                              }
-                            });
-
-                            // Save the updated event
-                            await invitedEvent.save();
-
-                            return res.status(200).json({
-                              success: true,
-                              responseMessage: 'Event responses saved successfully',
-                            });
-                          }
-                        } catch (error) {
-                          console.error(error);
-                          return res.status(500).json({
-                            success: false,
-                            serverErrorMessage: 'Server Error',
-                          });
-                        }
-                      };
+   CMS
+                    Tommorow task
+1) get Images from event
+2) add new Image in Image array of event
+3) delete particular image from image array of event
+4) create socialMedial page 
+5) create Phone page
+6) create email page
+7) create write a message page
+8) get all messages
+9) delete particular message 
 
 
 
 
-***********************************************************
+
 
 const userRespondToInvitedEvent = async (req, res) => {
   try {
-    const invitedId = req.params.invitedId;
-    const { response, selectedVenueNames, phone_no } = req.body;
+    const eventId = req.params.eventId;
+    const { response, event_title, selected_subEvent_Names, phone_no } = req.body;
 
     // Check if the event exists
-    const invitedEvent = await InvitedeventModel.findById(invitedId);
+    const invitedEvent = await InvitedeventModel.findOne({ _id : eventId });
 
     if (!invitedEvent) {
       return res.status(400).json({
@@ -186,23 +36,34 @@ const userRespondToInvitedEvent = async (req, res) => {
     if (!user) {
       return res.status(400).json({
         success: false,
-        userExistanceMessage: 'User not found in user table',
+        userExistanceMessage: 'User not found ',
       });
     }
+        // Check if the user has already responded to the event
+      const userResponse = await userResponseEventModel.findOne({
+        eventId : eventId ,
+        'Guests.phone_no': user.phone_no,
+      });
 
+      if (userResponse) {
+        return res.status(200).json({
+          success: false,
+          responseMessage: 'You already responded to the event',
+        });
+      }
     // Create a single response record for the entire event
     const responseMapping = {
       yes: 'accept',
       no: 'reject',
       maybe: 'undecided',
-      'yes-multiple': 'accept-all',
-      'some-multiple': 'accept-some',
-      'no-multiple': 'reject',
+      yes_multiple: 'accept',
+      some_multiple: 'acceptsome',
+      no_multiple : 'reject',
     };
 
-    const venueStatus = responseMapping[response] === 'accept' ? 1 : responseMapping[response] === 'reject' ? 2 : 0;
+    const venueStatus = responseMapping[response] === 'accept' ? 1 : responseMapping[response] === 'reject' ? 2 : responseMapping[response] === 'acceptsome' ? 3 : 0;
 
-    // Check if there is an existing record in userResponseEventModel for the same invitedId
+    // Check if there is an existing record in userResponseEventModel for the same InvitedEventId
     const existingUserResponse = await userResponseEventModel.findOne({
       InvitedEventId: invitedEvent._id,
     });
@@ -212,42 +73,73 @@ const userRespondToInvitedEvent = async (req, res) => {
       existingUserResponse.Guests.push({
         Guest_Name: user.fullName,
         phone_no: user.phone_no,
-        guest_status: responseMapping[response] === 'accept' ? 0 : responseMapping[response] === 'reject' ? 1 : 0,
-        venue: selectedVenueNames.map((venueName, index) => ({
-          venue_Name: venueName,
+        status: responseMapping[response] === 'accept' ? 0 : responseMapping[response] === 'reject' ? 1 : responseMapping[response] === 'acceptsome' ? 0 : 3,
+        venue: invitedEvent.venue_Date_and_time.length === 1 ? invitedEvent.venue_Date_and_time.map((venueDetails, index) => ({
+          sub_event_title: venueDetails.sub_event_title,
           venue_status: venueStatus,
-        })),
+        })) : (selected_subEvent_Names && selected_subEvent_Names.length > 0) ? selected_subEvent_Names.map((sub_event_title, index) => ({
+          sub_event_title: sub_event_title,
+          venue_status: venueStatus,
+        })) : [],
+        eventId: eventId, 
       });
+
+      // // Update each sub_event_status based on the user's response
+      // existingUserResponse.Guests.forEach(guest => {
+      //   guest.venue.forEach(venue => {
+      //     venue.venue_status = venueStatus;
+      //   });
+      // });
 
       // Save the updated record
       await existingUserResponse.save();
+      invitedEvent.Guests.forEach(guest => {
+        if (guest.phone_no === user.phone_no) {
+          guest.status = responseMapping[response] === 'accept' ? 0 : responseMapping[response] === 'reject' ? 1 : responseMapping[response] === 'acceptsome' ? 0 : 3;
+        }
+      });
+    
+      // Save the updated invitedEvent
+      await invitedEvent.save()
     } else {
       // Create a new record if it doesn't exist
       const newUserResponse = new userResponseEventModel({
         hostId: invitedEvent.hostId,
         hostName: invitedEvent.hostName,
-        InvitedEventId: invitedEvent._id,
-        event_title: invitedEvent.event_title,
+        InvitedEventId: invitedEvent._id, // Add the InvitedEventId
+        eventId: eventId, // Add the eventId
+        event_title: invitedEvent.venue_Date_and_time.length === 1 ? event_title : invitedEvent.event_title,
         event_description: invitedEvent.event_description,
-        event_Type: invitedEvent.event_Type,
+        event_Type: invitedEvent.event_key,
         Guests: [
           {
             Guest_Name: user.fullName,
             phone_no: user.phone_no,
-            guest_status: responseMapping[response] === 'accept' ? 0 : responseMapping[response] === 'reject' ? 1 : 0,
-            venue: selectedVenueNames.map((venueName, index) => ({
-              venue_Name: venueName,
+            status: responseMapping[response] === 'accept' ? 0 : responseMapping[response] === 'reject' ? 1 : responseMapping[response] === 'acceptsome' ? 0 : 3,
+            venue: invitedEvent.venue_Date_and_time.length === 1 ? invitedEvent.venue_Date_and_time.map((venueDetails, index) => ({
+              sub_event_title: venueDetails.sub_event_title,
               venue_status: venueStatus,
-            })),
+            })) : (selected_subEvent_Names && selected_subEvent_Names.length > 0) ? selected_subEvent_Names.map((sub_event_title, index) => ({
+              sub_event_title: sub_event_title,
+              venue_status: venueStatus,
+            })) : [],
           },
         ],
         images: invitedEvent.images,
       });
-
+    
       // Save the new record
       await newUserResponse.save();
+      invitedEvent.Guests.forEach(guest => {
+        if (guest.phone_no === user.phone_no) {
+          guest.status = responseMapping[response] === 'accept' ? 0 : responseMapping[response] === 'reject' ? 1 : responseMapping[response] === 'acceptsome' ? 0 : 3;
+        }
+      });
+    
+      // Save the updated invitedEvent
+      await invitedEvent.save();
     }
-
+        
     return res.status(200).json({
       success: true,
       responseMessage: 'Event response saved successfully',
@@ -835,3 +727,186 @@ getAllFeedback
 deleteFeedback 
 etAllCollections
 getCollectionById
+
+
+___________________________________________________
+
+const add_guest = async (req, res) => {
+    try {
+        const userId = req.params.userId;
+        const eventId = req.params.eventId;
+        const { Guest_Name, phone_no, eventGuest_key } = req.body;
+
+        const requiredFields = ['Guest_Name', 'phone_no', 'eventGuest_key'];
+
+        for (const field of requiredFields) {
+            if (!req.body[field]) {
+                return res.status(400).json({ message: `Missing ${field.replace('_', ' ')} field`, success: false });
+            }
+        }
+
+        // Check for event
+        const event = await eventModel.findOne({ _id: eventId });
+
+        if (!event) {
+            return res.status(400).json({ success: false, message: `Event not found with the eventId ${eventId}` });
+        }
+
+        // Get user details from event or co-hosts
+        let createdBy = "";
+        const user = await userModel.findOne({ phone_no: phone_no });
+        
+        if (user && event.userId === user._id) {
+            createdBy = user.userName;
+        } else {
+            // Check co-hosts for matching phone number
+            const coHost = event.co_hosts.find((coHost) => coHost.phone_no === phone_no);
+            if (coHost) {
+                createdBy = coHost.co_host_Name;
+            }
+        }
+
+        // Convert eventGuest_key to integer if it's a string
+        const key = parseInt(eventGuest_key);
+
+        if (![1, 2].includes(key)) {
+            return res.status(400).json({ success: false, message: `Invalid eventGuest_key value` });
+        }
+
+        if (key === 1) {
+            // Check if guest already exists with the same phone number 
+            const guestExist = event.Guests.find((guest) => guest.phone_no === phone_no);
+
+            if (guestExist) {
+                return res.status(400).json({
+                    success: false,
+                    guestExistMessage: 'Guest already exists with the same phone_no',
+                });
+            }
+
+            // Add the new guest to the Guests array
+            event.Guests.push({
+                Guest_Name,
+                phone_no,
+                status: 0,
+                created_by: createdBy // Assigning created_by here
+            });
+
+            await event.save();
+
+            return res.status(200).json({
+                success: true,
+                message: `Guest added successfully`,
+            });
+        } else if (key === 2) {
+            // Check for invited Event
+            const invitedEvent = await InvitedeventModel.findOne({ _id : eventId });
+
+            if (!invitedEvent) {
+                return res.status(400).json({ success: false, message: `Invited event not found with the eventId ${eventId}` });
+            }
+
+            // Check if guest already exists with the same phone number in the invited event
+            const guestExistInInvitedEvent = invitedEvent.Guests.find((guest) => guest.phone_no === phone_no);
+
+            if (guestExistInInvitedEvent) {
+                return res.status(400).json({
+                    success: false,
+                    guestExistMessage: 'Guest already exists with the same phone_no in the invited event',
+                });
+            } else {
+                // Add the guest to the Invited Event 
+                invitedEvent.Guests.push({
+                    Guest_Name,
+                    phone_no,
+                    status: 2,
+                    created_by: createdBy // Assigning created_by here
+                });
+                await invitedEvent.save();
+
+                if (user) {
+                    // Create a notification for the user
+                    await NotificationModel.create({
+                        eventId: event._id,
+                        title: event.title,
+                        description: event.description,
+                        userId: user._id,
+                        phone_no: phone_no,
+                        message: `Hello, you are invited to ${event.title} by ${event.userName}`
+                    });
+                } else {
+                    // Sending SMS to invalid guests
+                    const formattedPhoneNumber = `+91${phone_no}`;
+                    const message = `Hello, you are invited to ${event.title} by ${event.userName}. Receive updates about the event on the link: https://localhost.com`;
+
+                    // Use SMS Gateway Hub to send SMS
+                    await sendSMSUsingGatewayHub(formattedPhoneNumber, message);
+                }
+
+                return res.status(200).json({
+                    success: true,
+                    message: 'Guests added successfully',
+                });
+            }
+        }
+    } catch (error) {
+        console.error(error);
+        return res.status(500).json({
+            success: false,
+            message: 'There is a server error',
+        });
+    }
+};
+
+
+
+
+
+================================================
+
+
+router.post('/events/:eventId/chat/:userId', async (req, res) => {
+    try {
+        const { eventId, userId } = req.params;
+        const { text_message } = req.body;
+
+        // Check if eventId and userId are provided
+        if (!eventId || !userId) {
+            return res.status(400).json({ success: false, message: 'Event ID and User ID are required.' });
+        }
+
+        // Check if the event exists
+        const event = await eventModel.findById(eventId);
+        if (!event) {
+            return res.status(404).json({ success: false, message: 'Event not found.' });
+        }
+
+        // Check if the user exists
+        const user = await userModel.findById(userId);
+        if (!user) {
+            return res.status(404).json({ success: false, message: 'User not found.' });
+        }
+
+        // Add the chat message to the event
+        const newMessage = {
+            userName: user.userName,
+            user_image: user.user_profileImage,
+            text_message: text_message
+        };
+
+        event.message.push(newMessage);
+        event.message_count++;
+
+        // Save the updated event
+        await event.save();
+
+        return res.status(200).json({ success: true, message: 'Chat message added successfully.', message: newMessage });
+    } catch (error) {
+        console.error(error);
+        return res.status(500).json({ success: false, message: 'Server error.' });
+    }
+});
+
+
+
+
